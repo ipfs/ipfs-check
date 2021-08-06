@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<script>
+    // An example of collecting data for a status page using a dedicated backend
+    function httpPostAsync(theUrl, callback)
+    {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4)
+                callback(xhr);
+        }
+        xhr.open("POST", theUrl, true);
+        xhr.send(null);
+    }
+
+    window.addEventListener("load", function() {
+        document.getElementById('queryForm').addEventListener("submit", function(e) {
+            e.preventDefault(); // before the code
+            c = document.getElementById('cid').value
+            ma = document.getElementById('multiaddr').value
+            backendURL = document.getElementById('backendURL').value
+            peerIDStartIndex = ma.lastIndexOf("/p2p/")
+            peerID = ma.substr(peerIDStartIndex + 5, ma.length)
+            addrPart = ma.substr(0, peerIDStartIndex)
+            outObj = document.getElementById('output')
+            outObj.textContent = ""
+            httpPostAsync(backendURL + '?multiaddr='+ma+"&cid="+c, function name(xhr) {
+                respText = xhr.responseText
+                if (xhr.status === 200) {
+                    respObj = JSON.parse(respText)
+                    outText = ""
+                    if (respObj.ConnectionError !== "") {
+                        outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
+                    } else {
+                        outText += "✔ Successfully connected to multiaddr\n"
+                    }
+                    foundAddr = false
+                    for (const key in respObj.PeerFoundInDHT) {
+                        if (key === addrPart) {
+                            foundAddr = true
+                            outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                            break
+                        }
+                    }
+                    if (!foundAddr) {
+                        outText += "❌ Could not find the given multiaddr in the dht. Instead found: " + Object.keys(respObj.PeerFoundInDHT) + "\n"
+                    }
+                    if (respObj.CidInDHT === true) {
+                        outText += "✔ Found multihash adverised in the dht\n"
+                    } else {
+                        outText += "❌ Could not find the multihash in the dht\n"
+                    }
+                    if (respObj.DataAvailableOverBitswap.Error !== "") {
+                        outText += "❌ There was an error downloading the CID from the peer: " + respObj.DataAvailableOverBitswap.Error + "\n"
+                    } else {
+                        if (respObj.DataAvailableOverBitswap.Responded !== true) {
+                            outText += "❌ The peer did not quickly respond if it had the CID\n"
+                        } else {
+                            if (respObj.DataAvailableOverBitswap.Found === true) {
+                                outText += "✔ The peer responded that it has the CID\n"
+                            } else {
+                                outText += "❌ The peer responded that it does not have the CID\n"
+                            }
+                        }
+                    }
+                    outObj.textContent = outText
+                } else {
+                    errText = "status code: " + xhr.status + " response: " + respText
+                    alert(errText)
+                }
+            })
+        })
+    });
+</script>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPFS CID Checker</title>
+</head>
+<body style="text-align: center;">
+<form id="queryForm">
+    <label for="multiaddr">Multiaddr: </label><input type="text" id="multiaddr" name="multiaddr" value="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo" size="160"/>
+    <br>
+    <label for="cid">CID: </label><input type="text" id="cid" name="CID" value="QmData" size="63">
+    <br>
+    <label for="backendURL">Backend URL: </label><input type="text" id="backendURL" value="http://localhost:3333" size="63">
+    <button type="submit">Run Test</button>
+</form>
+<div id="output" style="white-space:pre;"></div>
+<br>
+<div style="text-align: left;">
+    <h1>What does it mean if I get an error:</h1>
+    <ul>
+        <li>
+            Could not connect to the multiaddr: Machines on the internet cannot talk to your machine.
+            Fix your firewall, add port forwarding, or use a relay.
+        </li>
+        <li>
+            Could not find address in the dht: Your machine is either not connected to the IPFS Public DHT
+            (even as a client), or is not advertising the address that you are testing with. As a result no one will be
+            able to contact you on that address if they only learn about your peerID, as is the case for content
+            advertised in the IPFS Public DHT
+        </li>
+        <li>
+            Multihash not advertised in the dht: Your machine has not advertised that it has the given content in the
+            IPFS Public DHT. This means that other machines will have to discover that you have the content in some other
+            way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
+            advertised by you, some rendezvous service, being on the same LAN, etc.).
+        </li>
+        <li>
+            Peer has not responded that it has the CID: Your node does not think it has the data you think it does,
+            or it took too long to respond. Until this is resolved other machines will be unable to download that
+            content from you.
+        </li>
+    </ul>
+</div>
+</body>
+</html>
