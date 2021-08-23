@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/routing"
-	"time"
 
 	bsmsg "github.com/ipfs/go-bitswap/message"
 	bsmsgpb "github.com/ipfs/go-bitswap/message/pb"
@@ -16,6 +17,7 @@ import (
 )
 
 type BsCheckOutput struct {
+	Duration  time.Duration
 	Found     bool
 	Responded bool
 	Error     string
@@ -45,8 +47,11 @@ func checkBitswapCID(ctx context.Context, h host.Host, c cid.Cid, ai peer.AddrIn
 
 	bs.SetDelegate(rcv)
 
+	start := time.Now()
+
 	if err := bs.SendMessage(ctx, target, msg); err != nil {
 		return &BsCheckOutput{
+			Duration:  time.Since(start),
 			Found:     false,
 			Responded: false,
 			Error:     err.Error(),
@@ -68,6 +73,7 @@ loop:
 
 		if res.err != nil {
 			return &BsCheckOutput{
+				Duration:  time.Since(start),
 				Found:     false,
 				Responded: true,
 				Error:     res.err.Error(),
@@ -81,6 +87,7 @@ loop:
 		for _, msgC := range res.msg.Blocks() {
 			if msgC.Cid().Equals(c) {
 				return &BsCheckOutput{
+					Duration:  time.Since(start),
 					Found:     true,
 					Responded: true,
 					Error:     "",
@@ -91,6 +98,7 @@ loop:
 		for _, msgC := range res.msg.Haves() {
 			if msgC.Equals(c) {
 				return &BsCheckOutput{
+					Duration:  time.Since(start),
 					Found:     true,
 					Responded: true,
 					Error:     "",
@@ -101,6 +109,7 @@ loop:
 		for _, msgC := range res.msg.DontHaves() {
 			if msgC.Equals(c) {
 				return &BsCheckOutput{
+					Duration:  time.Since(start),
 					Found:     false,
 					Responded: true,
 					Error:     "",
@@ -110,6 +119,7 @@ loop:
 	}
 
 	return &BsCheckOutput{
+		Duration:  time.Since(start),
 		Found:     false,
 		Responded: false,
 		Error:     "",
