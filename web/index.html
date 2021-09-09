@@ -76,13 +76,22 @@
     <meta charset="UTF-8">
     <title>IPFS CID Checker</title>
 </head>
-<body style="text-align: center;">
+<body>
+<h1>IPFS CID Checker</h1>
+<div style="text-align: left;">
+This is a debugging tool that checks the retrievability of a given CID from an IPFS peer.
+    
+Paste in the peer multiaddr and content ID (CID), and it'll tell you if the CID is expected to be retrievable.
+</div>
+<br>
+<br>
 <form id="queryForm">
     <label for="multiaddr">Multiaddr: </label><input type="text" id="multiaddr" name="multiaddr" value="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo" size="160"/>
     <br>
     <label for="cid">CID: </label><input type="text" id="cid" name="CID" value="QmData" size="63">
     <br>
     <label for="backendURL">Backend URL: </label><input type="text" id="backendURL" value="https://ipfs-check-backend.ipfs.io" size="63">
+    <br>
     <button type="submit">Run Test</button>
 </form>
 <div id="output" style="white-space:pre;"></div>
@@ -112,6 +121,11 @@
             content from you.
         </li>
     </ul>
+</div>
+<br>
+<br>
+<div style="text-align: left;">
+    <a href="https://github.com/aschmahmann/ipfs-check">Github</a>
 </div>
 </body>
 </html>
