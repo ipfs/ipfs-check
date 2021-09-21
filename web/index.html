@@ -1,4 +1,70 @@
 <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPFS Check</title>
+    <link rel="stylesheet" href="tachyons.min.css"/>
+</head>
+<body class="sans-serif ma0">
+<header>
+    <h1 class="dib pa3 ma0 lh-tight">
+        <a class="link db f4 fw7 near-black" href="https://ipfs.io">IPFS <span class="blue fw5">Check</span></a>
+        <span class="db f6 fw6 silver">Have you seen my CID?</span>
+    </h1>
+</header>
+<main>
+    <section class="mw7 center lh-copy dark-gray ph1 pb4">
+        <p class="ma0 pv0 ph2 f4 fw6">
+            Check the retrievability of CID from an IPFS peer
+        </p>
+        <p class="ma0 pv0 mt2 ph2 f5 fw4">
+            Paste in a host peers multiaddr and a Content ID, to check if if is expected to be retrievable
+        </p>
+    </section>
+    <section class="bg-near-white">
+        <form id="queryForm" class="mw8 center lh-copy dark-gray br2 pv4 ph2 ph4-ns">
+            <label class="db mt3 f6 fw6" for="multiaddr">Multiaddr</label>
+            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" value="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo"/>
+            <label class="db mt3 f6 fw6" for="cid">CID</label>
+            <input class="db w-100 pa2" type="text" id="cid" name="CID" value="QmData">
+            <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
+            <input class="db w-100 pa2" type="text" id="backendURL" value="https://ipfs-check-backend.ipfs.io">
+            <div class="db mv4">
+                <button type="submit" class="db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">Run Test</button>
+            </div>
+            <div id="output" style="white-space:pre;" class="lh-copy fw6"></div>
+        </form>
+    </section>
+    <section class="mw8 center lh-copy dark-gray pv4 ph2 ph4-ns">
+        <h2 class="f4">What does it mean if I get an error?</h2>
+        <ul>
+            <li class="pb2">
+                <strong>Could not connect to the multiaddr</strong>. Machines on the internet cannot talk to your machine.
+                Fix your firewall, add port forwarding, or use a relay.
+            </li>
+            <li class="pb2">
+                <strong>Could not find address in the dht</strong>. Your machine is either not connected to the IPFS Public DHT
+                (even as a client), or is not advertising the address that you are testing with. As a result no one will be
+                able to contact you on that address if they only learn about your peerID, as is the case for content
+                advertised in the IPFS Public DHT
+            </li>
+            <li class="pb2">
+                <strong>Multihash not advertised in the dht</strong>. Your machine has not advertised that it has the given content in the
+                IPFS Public DHT. This means that other machines will have to discover that you have the content in some other
+                way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
+                advertised by you, some rendezvous service, being on the same LAN, etc.).
+            </li>
+            <li class="pb2">
+                <strong>Peer has not responded that it has the CID</strong>. Your node does not think it has the data you think it does,
+                or it took too long to respond. Until this is resolved other machines will be unable to download that
+                content from you.
+            </li>
+        </ul>
+    </section>
+</main>
+<footer class="tc pv3">
+    <a href="https://github.com/aschmahmann/ipfs-check">Github</a>
+</footer>
 <script>
     // An example of collecting data for a status page using a dedicated backend
     function httpPostAsync(theUrl, callback)
@@ -71,61 +137,5 @@
         })
     });
 </script>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>IPFS CID Checker</title>
-</head>
-<body>
-<h1>IPFS CID Checker</h1>
-<div style="text-align: left;">
-This is a debugging tool that checks the retrievability of a given CID from an IPFS peer.
-    
-Paste in the peer multiaddr and content ID (CID), and it'll tell you if the CID is expected to be retrievable.
-</div>
-<br>
-<br>
-<form id="queryForm">
-    <label for="multiaddr">Multiaddr: </label><input type="text" id="multiaddr" name="multiaddr" value="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo" size="160"/>
-    <br>
-    <label for="cid">CID: </label><input type="text" id="cid" name="CID" value="QmData" size="63">
-    <br>
-    <label for="backendURL">Backend URL: </label><input type="text" id="backendURL" value="https://ipfs-check-backend.ipfs.io" size="63">
-    <br>
-    <button type="submit">Run Test</button>
-</form>
-<div id="output" style="white-space:pre;"></div>
-<br>
-<div style="text-align: left;">
-    <h1>What does it mean if I get an error:</h1>
-    <ul>
-        <li>
-            Could not connect to the multiaddr: Machines on the internet cannot talk to your machine.
-            Fix your firewall, add port forwarding, or use a relay.
-        </li>
-        <li>
-            Could not find address in the dht: Your machine is either not connected to the IPFS Public DHT
-            (even as a client), or is not advertising the address that you are testing with. As a result no one will be
-            able to contact you on that address if they only learn about your peerID, as is the case for content
-            advertised in the IPFS Public DHT
-        </li>
-        <li>
-            Multihash not advertised in the dht: Your machine has not advertised that it has the given content in the
-            IPFS Public DHT. This means that other machines will have to discover that you have the content in some other
-            way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
-            advertised by you, some rendezvous service, being on the same LAN, etc.).
-        </li>
-        <li>
-            Peer has not responded that it has the CID: Your node does not think it has the data you think it does,
-            or it took too long to respond. Until this is resolved other machines will be unable to download that
-            content from you.
-        </li>
-    </ul>
-</div>
-<br>
-<br>
-<div style="text-align: left;">
-    <a href="https://github.com/aschmahmann/ipfs-check">Github</a>
-</div>
 </body>
 </html>
