@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>IPFS Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="tachyons.min.css"/>
 </head>
 <body class="sans-serif ma0">
@@ -24,11 +25,11 @@
     <section class="bg-near-white">
         <form id="queryForm" class="mw8 center lh-copy dark-gray br2 pv4 ph2 ph4-ns">
             <label class="db mt3 f6 fw6" for="multiaddr">Multiaddr</label>
-            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" value="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo"/>
+            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo" required />
             <label class="db mt3 f6 fw6" for="cid">CID</label>
-            <input class="db w-100 pa2" type="text" id="cid" name="CID" value="QmData">
+            <input class="db w-100 pa2" type="text" id="cid" name="CID" placeholder="QmData" required>
             <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
-            <input class="db w-100 pa2" type="text" id="backendURL" value="https://ipfs-check-backend.ipfs.io">
+            <input class="db w-100 pa2" type="text" id="backendURL" value="https://ipfs-check-backend.ipfs.io" placeholder="https://ipfs-check-backend.ipfs.io" required>
             <div class="db mv4">
                 <button type="submit" class="db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">Run Test</button>
             </div>
