@@ -55,8 +55,9 @@
                 IPFS Public DHT. This means that other machines will have to discover that you have the content in some other
                 way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
                 advertised by you, some rendezvous service, being on the same LAN, etc.). If using go-ipfs consider enabling the
-                <a href="https://github.com/ipfs/go-ipfs/blob/master/docs/experimental-features.md#accelerated-dht-client">Accelerated DHT Client</a>.
-
+                <a href="https://github.com/ipfs/go-ipfs/blob/master/docs/experimental-features.md#accelerated-dht-client">Accelerated DHT Client</a>,
+				which will advertise content faster and in particular may enable you to continue to republish your advertisements every 24hrs as
+				required by the network.
             </li>
             <li class="pb2">
                 <strong>Peer has not responded that it has the CID</strong>. Your node does not think it has the data you think it does,
