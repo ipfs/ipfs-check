@@ -21,11 +21,8 @@ import (
 	"github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	quict "github.com/libp2p/go-libp2p-quic-transport"
 	record "github.com/libp2p/go-libp2p-record"
 )
-
-var transportOpts = libp2p.ChainOptions(libp2p.DefaultTransports, libp2p.Transport(quict.NewTransport))
 
 type kademlia interface {
 	routing.Routing
@@ -34,10 +31,12 @@ type kademlia interface {
 
 func main() {
 	h, err := libp2p.New(
-		transportOpts,
 		libp2p.ConnectionManager(connmgr.NewConnManager(600, 900, time.Second*30)),
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	d, err := fullrt.NewFullRT(h, "/ipfs",
 		fullrt.DHTOption(
@@ -128,7 +127,7 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 
 	ctx := context.Background()
 
-	testHost, err := libp2p.New(transportOpts, libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
+	testHost, err := libp2p.New(libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
 	if err != nil {
 		return fmt.Errorf("server error: %w", err)
 	}
