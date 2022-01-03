@@ -9,7 +9,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-msgio/protoio"
 )
 
@@ -19,7 +18,7 @@ func dhtProtocolMessenger(proto protocol.ID, h host.Host) (*dhtpb.ProtocolMessen
 		protocols: []protocol.ID{proto},
 		timeout:   time.Second * 5,
 	}
-	messenger, err := dhtpb.NewProtocolMessenger(ms, dhtpb.WithValidator(&nilValidator{}))
+	messenger, err := dhtpb.NewProtocolMessenger(ms)
 	if err != nil {
 		return nil, err
 	}
@@ -89,15 +88,3 @@ func (ms *dhtMsgSender) SendMessage(ctx context.Context, p peer.ID, pmes *dhtpb.
 }
 
 var _ dhtpb.MessageSender = (*dhtMsgSender)(nil)
-
-type nilValidator struct{}
-
-func (n nilValidator) Validate(key string, value []byte) error {
-	return nil
-}
-
-func (n nilValidator) Select(key string, values [][]byte) (int, error) {
-	panic("implement me")
-}
-
-var _ record.Validator = (*nilValidator)(nil)
