@@ -33,10 +33,7 @@ type kademlia interface {
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	h, err := libp2p.New(ctx,
+	h, err := libp2p.New(
 		transportOpts,
 		libp2p.ConnectionManager(connmgr.NewConnManager(600, 900, time.Second*30)),
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
@@ -131,7 +128,7 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 
 	ctx := context.Background()
 
-	testHost, err := libp2p.New(ctx, transportOpts, libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
+	testHost, err := libp2p.New(transportOpts, libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
 	if err != nil {
 		return fmt.Errorf("server error: %w", err)
 	}
