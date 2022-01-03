@@ -38,6 +38,23 @@
         </form>
     </section>
     <section class="mw8 center lh-copy dark-gray pv4 ph2 ph4-ns">
+        <h2 class="f4">Where do I find my multiaddr?</h2>
+        <ul>
+            <li class="pb2">
+                <strong>Using IPFS Desktop or IPFS WebUI</strong>
+                <ul>
+                    <li>Open the IPFS WebUI "Status" page via the IPFS Desktop menu or by visiting "http://127.0.0.1:5001/webui" (when using the default config settings)
+                    <li>Click the "Advanced" dropdown to see more detailed node settings</li>
+                    <li>Choose an entry in your list of "Addresses" (these are the various multiaddrs via which your node is addressable).
+                        Note that some of your addresses may be reachable over the public internet and some (e.g. /ip4/127.0.0.1/tcp/4001/p2p/YourID) will not be
+                    </li>
+                </ul>
+            </li>
+            <li class="pb2">
+                <strong>Using the go-ipfs CLI</strong>. Choose an entry from the list of addresses output by <code>ipfs id</code>.
+                Note that some of your addresses may be reachable over the public internet and some (e.g. /ip4/127.0.0.1/tcp/4001/p2p/YourID) will not be.
+            </li>
+        </ul>
         <h2 class="f4">What does it mean if I get an error?</h2>
         <ul>
             <li class="pb2">
