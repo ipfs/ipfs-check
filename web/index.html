@@ -115,7 +115,8 @@
                     if (!foundAddr) {
                         outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
 						for (const key in respObj.PeerFoundInDHT) {
-							outText += "      " + respObj.PeerFoundInDHT[key] + "\n"
+							outText += "\t" + key + "\n"
+
 						}
                     }
                     if (respObj.CidInDHT === true) {
