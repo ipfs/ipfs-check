@@ -113,7 +113,11 @@
                         }
                     }
                     if (!foundAddr) {
-                        outText += "❌ Could not find the given multiaddr in the dht. Instead found: " + Object.keys(respObj.PeerFoundInDHT) + "\n"
+                        outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
+						for (const key in respObj.PeerFoundInDHT) {
+							outText += "\t" + key + "\n"
+
+						}
                     }
                     if (respObj.CidInDHT === true) {
                         outText += "✔ Found multihash adverised in the dht\n"
