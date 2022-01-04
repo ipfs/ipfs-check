@@ -121,20 +121,31 @@
                     } else {
                         outText += "✔ Successfully connected to multiaddr\n"
                     }
-                    foundAddr = false
-                    for (const key in respObj.PeerFoundInDHT) {
-                        if (key === addrPart) {
-                            foundAddr = true
-                            outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
-                            break
-                        }
-                    }
-                    if (!foundAddr) {
-                        outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
-						for (const key in respObj.PeerFoundInDHT) {
-							outText += "\t" + key + "\n"
 
-						}
+                    if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+                        if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
+                            outText += "❌ Could not find any multiaddrs in the dht\n"
+                        } else {
+                            outText += "✔ Found multiaddrs advertised in the DHT:\n"
+                            for (const key in respObj.PeerFoundInDHT) {
+                                outText += "\t" + key + "\n"
+                            }
+                        }
+                    } else {
+                        foundAddr = false
+                        for (const key in respObj.PeerFoundInDHT) {
+                            if (key === addrPart) {
+                                foundAddr = true
+                                outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                                break
+                            }
+                        }
+                        if (!foundAddr) {
+                            outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
+                            for (const key in respObj.PeerFoundInDHT) {
+                                outText += "\t" + key + "\n"
+                            }
+                        }
                     }
                     if (respObj.CidInDHT === true) {
                         outText += "✔ Found multihash adverised in the dht\n"

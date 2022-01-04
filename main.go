@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -22,6 +23,7 @@ import (
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	record "github.com/libp2p/go-libp2p-record"
+	"github.com/multiformats/go-multiaddr"
 )
 
 type kademlia interface {
@@ -126,6 +128,30 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 	}
 
 	ctx := context.Background()
+	out := &Output{}
+
+	connectionFailed := false
+
+	out.CidInDHT = providerRecordInDHT(ctx, d.dht, c, ai.ID)
+
+	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
+	out.PeerFoundInDHT = addrMap
+
+	// If peerID given, but no addresses check the DHT
+	if len(ai.Addrs) == 0 {
+		if peerAddrDHTErr != nil {
+			connectionFailed = true
+			out.ConnectionError = peerAddrDHTErr.Error()
+		}
+		for a := range addrMap {
+			ma, err := multiaddr.NewMultiaddr(a)
+			if err != nil {
+				log.Println(fmt.Errorf("error parsing multiaddr %s: %w", a, err))
+				continue
+			}
+			ai.Addrs = append(ai.Addrs, ma)
+		}
+	}
 
 	testHost, err := libp2p.New(libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
 	if err != nil {
@@ -133,25 +159,24 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 	}
 	defer testHost.Close()
 
-	out := &Output{}
+	if !connectionFailed {
+		// Is the target connectable
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*3)
+		connErr := testHost.Connect(dialCtx, *ai)
+		dialCancel()
+		if connErr != nil {
+			out.ConnectionError = connErr.Error()
+			connectionFailed = true
+		}
+	}
 
-	// Is the target connectable
-	dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*3)
-	connErr := testHost.Connect(dialCtx, *ai)
-	dialCancel()
-	if connErr != nil {
-		out.ConnectionError = connErr.Error()
+	if connectionFailed {
 		out.DataAvailableOverBitswap.Error = "could not connect to peer"
 	} else {
 		// If so is the data available over Bitswap
 		bsOut := checkBitswapCID(ctx, testHost, c, *ai)
 		out.DataAvailableOverBitswap = *bsOut
 	}
-
-	addrMap, _ := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
-	out.PeerFoundInDHT = addrMap
-
-	out.CidInDHT = providerRecordInDHT(ctx, d.dht, c, ai.ID)
 
 	outputData, err := json.Marshal(out)
 	if err != nil {
