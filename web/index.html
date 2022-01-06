@@ -26,7 +26,7 @@
     <section class="bg-near-white">
         <form id="queryForm" class="mw8 center lh-copy dark-gray br2 pv4 ph2 ph4-ns">
             <label class="db mt3 f6 fw6" for="multiaddr">Multiaddr</label>
-            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/ip4/1.2.3.4/tcp/1234/p2p/QmFoo" required />
+            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/QmFoo" required />
             <label class="db mt3 f6 fw6" for="cid">CID</label>
             <input class="db w-100 pa2" type="text" id="cid" name="CID" placeholder="QmData" required>
             <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
@@ -43,16 +43,17 @@
             <li class="pb2">
                 <strong>Using IPFS Desktop or IPFS WebUI</strong>
                 <ul>
-                    <li>Open the IPFS WebUI "Status" page via the IPFS Desktop menu or by visiting "http://127.0.0.1:5001/webui" (when using the default config settings)
-                    <li>Click the "Advanced" dropdown to see more detailed node settings</li>
-                    <li>Choose an entry in your list of "Addresses" (these are the various multiaddrs via which your node is addressable).
-                        Note that some of your addresses may be reachable over the public internet and some (e.g. /ip4/127.0.0.1/tcp/4001/p2p/YourID) will not be
-                    </li>
+                    <li>Open the IPFS WebUI "Status" page via the IPFS Desktop menu or by visiting "http://127.0.0.1:5001/webui" (when using the default config settings)</li>
+                    <li>If you want to test your peerID rather than a particular address enter <code>/p2p/{YourPeerID}</code></li>
+                    <li>If you want to test a particular address then click the "Advanced" dropdown to see the node's addresses</li>
                 </ul>
             </li>
             <li class="pb2">
-                <strong>Using the go-ipfs CLI</strong>. Choose an entry from the list of addresses output by <code>ipfs id</code>.
-                Note that some of your addresses may be reachable over the public internet and some (e.g. /ip4/127.0.0.1/tcp/4001/p2p/YourID) will not be.
+                <strong>Using the go-ipfs CLI</strong>
+                <ul>
+                    <li>If you want to test your peerID rather than a particular address run <code>ipfs id</code> and enter <code>/p2p/{YourPeerID}</code></li>
+                    <li>If you want to test a particular address then choose an entry from the list of addresses output by <code>ipfs id</code></li>
+                </ul>
             </li>
         </ul>
         <h2 class="f4">What does it mean if I get an error?</h2>
@@ -121,20 +122,31 @@
                     } else {
                         outText += "✔ Successfully connected to multiaddr\n"
                     }
-                    foundAddr = false
-                    for (const key in respObj.PeerFoundInDHT) {
-                        if (key === addrPart) {
-                            foundAddr = true
-                            outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
-                            break
-                        }
-                    }
-                    if (!foundAddr) {
-                        outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
-						for (const key in respObj.PeerFoundInDHT) {
-							outText += "\t" + key + "\n"
 
-						}
+                    if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+                        if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
+                            outText += "❌ Could not find any multiaddrs in the dht\n"
+                        } else {
+                            outText += "✔ Found multiaddrs advertised in the DHT:\n"
+                            for (const key in respObj.PeerFoundInDHT) {
+                                outText += "\t" + key + "\n"
+                            }
+                        }
+                    } else {
+                        foundAddr = false
+                        for (const key in respObj.PeerFoundInDHT) {
+                            if (key === addrPart) {
+                                foundAddr = true
+                                outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                                break
+                            }
+                        }
+                        if (!foundAddr) {
+                            outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
+                            for (const key in respObj.PeerFoundInDHT) {
+                                outText += "\t" + key + "\n"
+                            }
+                        }
                     }
                     if (respObj.CidInDHT === true) {
                         outText += "✔ Found multihash adverised in the dht\n"
