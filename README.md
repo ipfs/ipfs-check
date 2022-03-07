@@ -22,6 +22,15 @@ Maybe just deploy it on IPFS and reference it with DNSLink.
 
 For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
 
+## Docker
+
+There's a `Dockerfile` that runs the tool in docker.
+
+```sh
+docker build -t ipfs-check .
+docker run -d ipfs-check
+```
+
 ## License
 
 [SPDX-License-Identifier: Apache-2.0 OR MIT](LICENSE.md)
