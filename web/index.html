@@ -100,19 +100,16 @@
     }
 </style>
 <script>
-    window.addEventListener("load", function () {
+    window.addEventListener('load', function () {
         initFormValues(new URL(window.location))
-        document.getElementById('queryForm').addEventListener("submit", async function (e) {
+        document.getElementById('queryForm').addEventListener('submit', async function (e) {
             e.preventDefault() // dont do a borwser form post
-            showOutput("") // clear out previous results
+            showOutput('') // clear out previous results
 
             const formData = new FormData(document.getElementById('queryForm'))
-            for (const x of formData) {
-                console.log(x)
-            }
             const backendURL = getBackendUrl(formData)
             
-            showInQuery(formData) // add cid and ma to local url query to make it shareable
+            showInQuery(formData) // add `cid` and `multiaddr` to local url query to make it shareable
             toggleSubmitButton()            
             const res = await fetch(backendURL, { method: 'POST' })
             toggleSubmitButton()
