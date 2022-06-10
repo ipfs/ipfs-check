@@ -20,19 +20,25 @@
             Check the retrievability of CID from an IPFS peer
         </p>
         <p class="ma0 pv0 mt2 ph2 f5 fw4">
-            Paste in a host peers multiaddr and a Content ID, to check if it is expected to be retrievable
+            Paste in a Content ID and the multiaddr of a host to check if it is expected to be retrievable
         </p>
     </section>
     <section class="bg-near-white">
         <form id="queryForm" class="mw8 center lh-copy dark-gray br2 pv4 ph2 ph4-ns">
-            <label class="db mt3 f6 fw6" for="multiaddr">Multiaddr</label>
-            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/QmFoo" required />
             <label class="db mt3 f6 fw6" for="cid">CID</label>
-            <input class="db w-100 pa2" type="text" id="cid" name="CID" placeholder="QmData" required>
-            <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
-            <input class="db w-100 pa2" type="text" id="backendURL" value="https://ipfs-check-backend.ipfs.io" placeholder="https://ipfs-check-backend.ipfs.io" required>
+            <input class="db w-100 pa2" type="text" id="cid" name="cid" required>
+            <label class="db mt3 f6 fw6" for="ma">Multiaddr</label>
+            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/12D3Koo..." required />
+            <details class="mt3">
+                <summary class="f6 fw6">Optional fields</summary>
+                <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
+                <input class="db w-100 pa2" type="url" id="backendURL" name="backendURL" value="https://ipfs-check-backend.ipfs.io" placeholder="https://ipfs-check-backend.ipfs.io" list="defaultBackendURLs" required>
+                <datalist id="defaultBackendURLs">
+                    <option value="https://ipfs-check-backend.ipfs.io">
+                </datalist>
+            </details>
             <div class="db mv4">
-                <button type="submit" class="db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">Run Test</button>
+                <button id="submit" type="submit" class="db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">Run Test</button>
             </div>
             <div id="output" style="white-space:pre;" class="lh-copy fw6"></div>
         </form>
@@ -88,92 +94,128 @@
 <footer class="tc pv3">
     <a href="https://github.com/aschmahmann/ipfs-check">Github</a>
 </footer>
+<style>
+    button:disabled {
+        opacity: 50% !important;
+    }
+</style>
 <script>
-    // An example of collecting data for a status page using a dedicated backend
-    function httpPostAsync(theUrl, callback)
-    {
-        var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4)
-                callback(xhr);
+    window.addEventListener('load', function () {
+        initFormValues(new URL(window.location))
+        document.getElementById('queryForm').addEventListener('submit', async function (e) {
+            e.preventDefault() // dont do a browser form post
+
+            showOutput('') // clear out previous results
+
+            const formData = new FormData(document.getElementById('queryForm'))
+            const backendURL = getBackendUrl(formData)
+            
+            showInQuery(formData) // add `cid` and `multiaddr` to local url query to make it shareable
+            toggleSubmitButton()            
+            const res = await fetch(backendURL, { method: 'POST' })
+            toggleSubmitButton()
+            if (res.ok) {
+                const respObj = await res.json()
+                const output = formatOutput(formData, respObj)
+                showOutput(output)
+            } else {
+                const resText = await res.text()
+                showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+            }
+        })
+    })
+
+    function initFormValues (url) {
+        for (const [key, val] of url.searchParams) {
+            document.getElementById(key)?.setAttribute('value', val)
         }
-        xhr.open("POST", theUrl, true);
-        xhr.send(null);
     }
 
-    window.addEventListener("load", function() {
-        document.getElementById('queryForm').addEventListener("submit", function(e) {
-            e.preventDefault(); // before the code
-            c = document.getElementById('cid').value
-            ma = document.getElementById('multiaddr').value
-            backendURL = document.getElementById('backendURL').value
-            peerIDStartIndex = ma.lastIndexOf("/p2p/")
-            peerID = ma.substr(peerIDStartIndex + 5, ma.length)
-            addrPart = ma.substr(0, peerIDStartIndex)
-            outObj = document.getElementById('output')
-            outObj.textContent = ""
-            httpPostAsync(backendURL + '?multiaddr='+ma+"&cid="+c, function name(xhr) {
-                respText = xhr.responseText
-                if (xhr.status === 200) {
-                    respObj = JSON.parse(respText)
-                    outText = ""
-                    if (respObj.ConnectionError !== "") {
-                        outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
-                    } else {
-                        outText += "✔ Successfully connected to multiaddr\n"
-                    }
+    function showInQuery (formData) {
+        const defaultBackendUrl = document.getElementById('backendURL').getAttribute('placeholder')
+        const params = new URLSearchParams(formData)
+        // skip showing default value our shareable url
+        if (params.get('backendURL') === defaultBackendUrl) {
+            params.delete('backendURL')
+        }
+        const url = new URL('?' + params, window.location)
+        history.replaceState(null, "", url)
+    }
 
-                    if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
-                        if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
-                            outText += "❌ Could not find any multiaddrs in the dht\n"
-                        } else {
-                            outText += "✔ Found multiaddrs advertised in the DHT:\n"
-                            for (const key in respObj.PeerFoundInDHT) {
-                                outText += "\t" + key + "\n"
-                            }
-                        }
-                    } else {
-                        foundAddr = false
-                        for (const key in respObj.PeerFoundInDHT) {
-                            if (key === addrPart) {
-                                foundAddr = true
-                                outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
-                                break
-                            }
-                        }
-                        if (!foundAddr) {
-                            outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
-                            for (const key in respObj.PeerFoundInDHT) {
-                                outText += "\t" + key + "\n"
-                            }
-                        }
-                    }
-                    if (respObj.CidInDHT === true) {
-                        outText += "✔ Found multihash adverised in the dht\n"
-                    } else {
-                        outText += "❌ Could not find the multihash in the dht\n"
-                    }
-                    if (respObj.DataAvailableOverBitswap.Error !== "") {
-                        outText += "❌ There was an error downloading the CID from the peer: " + respObj.DataAvailableOverBitswap.Error + "\n"
-                    } else {
-                        if (respObj.DataAvailableOverBitswap.Responded !== true) {
-                            outText += "❌ The peer did not quickly respond if it had the CID\n"
-                        } else {
-                            if (respObj.DataAvailableOverBitswap.Found === true) {
-                                outText += "✔ The peer responded that it has the CID\n"
-                            } else {
-                                outText += "❌ The peer responded that it does not have the CID\n"
-                            }
-                        }
-                    }
-                    outObj.textContent = outText
-                } else {
-                    errText = "status code: " + xhr.status + " response: " + respText
-                    alert(errText)
+    function getBackendUrl (formData) {
+        const params = new URLSearchParams(formData)
+        // dont send backendURL to the backend!
+        params.delete('backendURL')
+        // backendURL is the base, params are appended as query string
+        return new URL('?' + params, formData.get('backendURL'))
+    }
+
+    function showOutput (output) {
+        const outObj = document.getElementById('output')
+        outObj.textContent = output
+    }
+
+    function toggleSubmitButton() {
+        const button = document.getElementById('submit')
+        button.toggleAttribute('disabled')
+    }
+
+    function formatOutput (formData, respObj) {
+        const ma = formData.get('multiaddr')
+        const peerIDStartIndex = ma.lastIndexOf("/p2p/")
+        const peerID = ma.substr(peerIDStartIndex + 5, ma.length)
+        const addrPart = ma.substr(0, peerIDStartIndex)
+        let outText = ""
+
+        if (respObj.ConnectionError !== "") {
+            outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
+        } else {
+            outText += "✔ Successfully connected to multiaddr\n"
+        }
+
+        if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+            if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
+                outText += "❌ Could not find any multiaddrs in the dht\n"
+            } else {
+                outText += "✔ Found multiaddrs advertised in the DHT:\n"
+                for (const key in respObj.PeerFoundInDHT) {
+                    outText += "\t" + key + "\n"
                 }
-            })
-        })
-    });
+            }
+        } else {
+            let foundAddr = false
+            for (const key in respObj.PeerFoundInDHT) {
+                if (key === addrPart) {
+                    foundAddr = true
+                    outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                    break
+                }
+            }
+            if (!foundAddr) {
+                outText += "❌ Could not find the given multiaddr in the dht. Instead found:\n"
+                for (const key in respObj.PeerFoundInDHT) {
+                    outText += "\t" + key + "\n"
+                }
+            }
+        }
+        
+        if (respObj.CidInDHT === true) {
+            outText += "✔ Found multihash adverised in the dht\n"
+        } else {
+            outText += "❌ Could not find the multihash in the dht\n"
+        }
+
+        if (respObj.DataAvailableOverBitswap.Error !== "") {
+            outText += "❌ There was an error downloading the CID from the peer: " + respObj.DataAvailableOverBitswap.Error + "\n"
+        } else if (respObj.DataAvailableOverBitswap.Responded !== true) {
+            outText += "❌ The peer did not quickly respond if it had the CID\n"
+        } else if (respObj.DataAvailableOverBitswap.Found === true) {
+            outText += "✔ The peer responded that it has the CID\n"
+        } else {
+            outText += "❌ The peer responded that it does not have the CID\n"
+        }
+        return outText
+    }
 </script>
 </body>
 </html>
