@@ -17,7 +17,7 @@
 <main>
     <section class="mw7 center lh-copy dark-gray ph1 pb4">
         <p class="ma0 pv0 ph2 f4 fw6">
-            Check the retrievability of a CID on IPFS
+            Check the retrievability of CID from an IPFS peer
         </p>
         <p class="ma0 pv0 mt2 ph2 f5 fw4">
             Paste in a Content ID and the multiaddr of a host to check if it is expected to be retrievable
@@ -103,7 +103,8 @@
     window.addEventListener('load', function () {
         initFormValues(new URL(window.location))
         document.getElementById('queryForm').addEventListener('submit', async function (e) {
-            e.preventDefault() // dont do a borwser form post
+            e.preventDefault() // dont do a browser form post
+
             showOutput('') // clear out previous results
 
             const formData = new FormData(document.getElementById('queryForm'))
