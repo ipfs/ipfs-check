@@ -31,6 +31,21 @@ docker build -t ipfs-check .
 docker run -d ipfs-check
 ```
 
+## Running locally
+
+### Terminal 1
+```
+go build
+./ipfs-check # Note listening port.. output should say something like "listening on [::]:3333"
+```
+
+### Terminal 2
+```
+# feel free to use any other tool to serve the contents of the /web folder, but you must run `npm run build` first.
+(cd web && npm run build) && npx -y serve -l 3000 web
+# Then open http://localhost:3000?backendUrl=http://localhost:3333
+```
+
 ## License
 
 [SPDX-License-Identifier: Apache-2.0 OR MIT](LICENSE.md)
