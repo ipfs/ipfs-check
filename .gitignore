@@ -14,3 +14,6 @@ ipfs-check
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# macOS things
+.DS_Store
