@@ -1,0 +1,30 @@
+{
+  "private": true,
+  "name": "ipfs-check",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild telemetry.js --outfile=dist/telemetry.min.js --minify --platform=browser --format=iife --bundle --target=chrome109,firefox109,edge108,safari16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ipfs-shipyard/ipfs-check.git"
+  },
+  "keywords": [
+    "ipfs",
+    "ipfs-gui"
+  ],
+  "author": "aschmahmann",
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/ipfs-shipyard/ipfs-check/issues"
+  },
+  "homepage": "https://github.com/ipfs-shipyard/ipfs-check#readme",
+  "devDependencies": {
+    "esbuild": "^0.17.4"
+  },
+  "dependencies": {
+    "@ipfs-shipyard/ignite-metrics": "^1.2.2"
+  }
+}
