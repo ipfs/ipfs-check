@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild telemetry.js --outdir=dist --platform=browser --format=iife --bundle --target=chrome109,firefox109,edge108,safari16"
+    "build": "esbuild telemetry.js --outfile=dist/telemetry.min.js --minify --platform=browser --format=iife --bundle --target=chrome109,firefox109,edge108,safari16"
   },
   "repository": {
     "type": "git",
