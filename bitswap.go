@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/routing"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/routing"
 
-	bsmsg "github.com/ipfs/go-bitswap/message"
-	bsmsgpb "github.com/ipfs/go-bitswap/message/pb"
-	bsnet "github.com/ipfs/go-bitswap/network"
 	"github.com/ipfs/go-cid"
 	nrouting "github.com/ipfs/go-ipfs-routing/none"
-	"github.com/libp2p/go-libp2p-core/peer"
+	bsmsg "github.com/ipfs/go-libipfs/bitswap/message"
+	bsmsgpb "github.com/ipfs/go-libipfs/bitswap/message/pb"
+	bsnet "github.com/ipfs/go-libipfs/bitswap/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type BsCheckOutput struct {
@@ -45,7 +45,7 @@ func checkBitswapCID(ctx context.Context, h host.Host, c cid.Cid, ai peer.AddrIn
 		result: make(chan msgOrErr),
 	}
 
-	bs.SetDelegate(rcv)
+	bs.Start(rcv)
 
 	start := time.Now()
 

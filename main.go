@@ -6,8 +6,8 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/routing"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/routing"
 )
 
 type kademlia interface {
@@ -35,7 +35,6 @@ func main() {
 		3. Is the CID in the DHT?
 		4. Does the peer respond that it has the given data over Bitswap?
 	*/
-
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if err := daemon.runCheck(writer, request.RequestURI); err != nil {
 			writer.Header().Add("Access-Control-Allow-Origin", "*")

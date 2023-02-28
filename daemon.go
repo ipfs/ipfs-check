@@ -14,15 +14,13 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-connmgr"
-	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-kad-dht"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	record "github.com/libp2p/go-libp2p-record"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -33,8 +31,13 @@ type daemon struct {
 }
 
 func NewDaemon() *daemon {
+	c, err := connmgr.NewConnManager(600, 900, connmgr.WithGracePeriod(time.Second*30))
+	if err != nil {
+		panic(err)
+	}
+
 	h, err := libp2p.New(
-		libp2p.ConnectionManager(connmgr.NewConnManager(600, 900, time.Second*30)),
+		libp2p.ConnectionManager(c),
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 	)
 	if err != nil {
