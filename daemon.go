@@ -31,6 +31,11 @@ type daemon struct {
 }
 
 func NewDaemon() *daemon {
+	rm, err := NewResourceManager()
+	if err != nil {
+		panic(err)
+	}
+
 	c, err := connmgr.NewConnManager(600, 900, connmgr.WithGracePeriod(time.Second*30))
 	if err != nil {
 		panic(err)
@@ -39,6 +44,7 @@ func NewDaemon() *daemon {
 	h, err := libp2p.New(
 		libp2p.ConnectionManager(c),
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
+		libp2p.ResourceManager(rm),
 	)
 	if err != nil {
 		panic(err)
