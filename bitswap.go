@@ -8,11 +8,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/routing"
 
+	bsmsg "github.com/ipfs/boxo/bitswap/message"
+	bsmsgpb "github.com/ipfs/boxo/bitswap/message/pb"
+	bsnet "github.com/ipfs/boxo/bitswap/network"
+	nrouting "github.com/ipfs/boxo/routing/none"
 	"github.com/ipfs/go-cid"
-	nrouting "github.com/ipfs/go-ipfs-routing/none"
-	bsmsg "github.com/ipfs/go-libipfs/bitswap/message"
-	bsmsgpb "github.com/ipfs/go-libipfs/bitswap/message/pb"
-	bsnet "github.com/ipfs/go-libipfs/bitswap/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 

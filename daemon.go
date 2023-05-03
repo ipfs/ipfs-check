@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ipfs/boxo/ipns"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipns"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
