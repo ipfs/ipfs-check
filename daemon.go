@@ -82,6 +82,9 @@ func (d *daemon) MustStart() {
 }
 
 func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
+	writer.Header().Add("Access-Control-Allow-Origin", "*")
+	writer.Header().Add("Content-Type", "application/json")
+
 	u, err := url.ParseRequestURI(uristr)
 	if err != nil {
 		return err
@@ -160,7 +163,6 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 		return err
 	}
 
-	writer.Header().Add("Access-Control-Allow-Origin", "*")
 	_, err = writer.Write(outputData)
 	if err != nil {
 		fmt.Printf("could not return data over HTTP: %v\n", err.Error())
