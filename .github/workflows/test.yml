@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  test:
+    runs-on: 'ubuntu-latest'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.4
+      - uses: actions/checkout@v3
+        with:
+          path: 'ipfs-check'
+      - name: Build and Start
+        run: |
+          cd ipfs-check
+          go build -o ipfs-check
+          ./ipfs-check &
+          sleep 300
+      - uses: ipfs/download-ipfs-distribution-action@v1
+      - name: Configure Kubo Gateway
+        run: |
+          ipfs init;
+      - uses: ipfs/start-ipfs-daemon-action@v1
+      - name: Tests
+        working-directory: ipfs-check
+        run: |
+          go test ./...
