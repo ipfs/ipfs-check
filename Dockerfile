@@ -1,4 +1,4 @@
-FROM cimg/go:1.17.8
+FROM cimg/go:1.19.1
 USER circleci
 RUN mkdir -p /home/circleci/app
 WORKDIR /home/circleci/app
