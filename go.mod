@@ -2,8 +2,6 @@ module github.com/aschmahmann/ipfs-check
 
 go 1.21
 
-toolchain go1.22.1
-
 require (
 	github.com/gavv/httpexpect/v2 v2.16.0
 	github.com/ipfs/boxo v0.18.0
