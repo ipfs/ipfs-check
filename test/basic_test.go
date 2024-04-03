@@ -21,7 +21,7 @@ func init() {
 	BOOTSTRAP_PEER_ADDR = call("bash", "-c", "ipfs bootstrap list | head -n 1")
 	// ipfs name resolve /ipns/en.wikipedia-on-ipfs.org => /ipfs/CID, we remove the /ipfs/ prefix
 	WIKIPEDIA_CID = call("ipfs", "name", "resolve", "/ipns/en.wikipedia-on-ipfs.org")[6:]
-	WIKIPEDIA_PEER_ID = call("bash", "-c", fmt.Sprintf("ipfs dht findprovs %s | tail -n 1", WIKIPEDIA_CID))
+	WIKIPEDIA_PEER_ID = call("bash", "-c", fmt.Sprintf("ipfs routing findprovs %s | tail -n 1", WIKIPEDIA_CID))
 	WIKIPEDIA_PEER_ADDR = fmt.Sprintf("/p2p/%s", WIKIPEDIA_PEER_ID)
 }
 
