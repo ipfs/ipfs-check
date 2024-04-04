@@ -30,15 +30,15 @@ type daemon struct {
 	dhtMessenger *dhtpb.ProtocolMessenger
 }
 
-func NewDaemon() *daemon {
+func newDaemon() (*daemon, error) {
 	rm, err := NewResourceManager()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	c, err := connmgr.NewConnManager(600, 900, connmgr.WithGracePeriod(time.Second*30))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	h, err := libp2p.New(
@@ -47,7 +47,7 @@ func NewDaemon() *daemon {
 		libp2p.ResourceManager(rm),
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	d, err := fullrt.NewFullRT(h, "/ipfs",
@@ -62,19 +62,18 @@ func NewDaemon() *daemon {
 		))
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	pm, err := dhtProtocolMessenger("/ipfs/kad/1.0.0", h)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	daemon := &daemon{h: h, dht: d, dhtMessenger: pm}
-	return daemon
+	return &daemon{h: h, dht: d, dhtMessenger: pm}, nil
 }
 
-func (d *daemon) MustStart() {
+func (d *daemon) mustStart() {
 	// Wait for the DHT to be ready
 	for !d.dht.Ready() {
 		time.Sleep(time.Second * 10)
@@ -108,7 +107,7 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 	}
 
 	ctx := context.Background()
-	out := &Output{}
+	out := &output{}
 
 	connectionFailed := false
 
@@ -171,7 +170,7 @@ func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
 	return nil
 }
 
-type Output struct {
+type output struct {
 	ConnectionError          string
 	PeerFoundInDHT           map[string]int
 	CidInDHT                 bool
