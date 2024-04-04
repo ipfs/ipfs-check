@@ -1,21 +1,13 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net"
 	"net/http"
 	"os"
 
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/urfave/cli/v2"
 )
-
-type kademlia interface {
-	routing.Routing
-	GetClosestPeers(ctx context.Context, key string) ([]peer.ID, error)
-}
 
 func main() {
 	app := cli.NewApp()
@@ -28,9 +20,15 @@ func main() {
 			Usage:   "address to run on",
 			EnvVars: []string{"IPFS_CHECK_ADDRESS"},
 		},
+		&cli.BoolFlag{
+			Name:    "accelerated-dht",
+			Value:   true,
+			EnvVars: []string{"IPFS_CHECK_ACCELERATED_DHT"},
+			Usage:   "run the accelerated DHT client",
+		},
 	}
 	app.Action = func(ctx *cli.Context) error {
-		daemon, err := newDaemon()
+		daemon, err := newDaemon(ctx.Context, ctx.Bool("accelerated-dht"))
 		if err != nil {
 			return err
 		}

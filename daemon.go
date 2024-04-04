@@ -20,17 +20,23 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
 )
 
+type kademlia interface {
+	routing.Routing
+	GetClosestPeers(ctx context.Context, key string) ([]peer.ID, error)
+}
+
 type daemon struct {
 	h            host.Host
-	dht          *fullrt.FullRT
+	dht          kademlia
 	dhtMessenger *dhtpb.ProtocolMessenger
 }
 
-func newDaemon() (*daemon, error) {
+func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
 	if err != nil {
 		return nil, err
@@ -50,16 +56,22 @@ func newDaemon() (*daemon, error) {
 		return nil, err
 	}
 
-	d, err := fullrt.NewFullRT(h, "/ipfs",
-		fullrt.DHTOption(
-			dht.BucketSize(20),
-			dht.Validator(record.NamespacedValidator{
-				"pk":   record.PublicKeyValidator{},
-				"ipns": ipns.Validator{},
-			}),
-			dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...),
-			dht.Mode(dht.ModeClient),
-		))
+	var d kademlia
+	if acceleratedDHT {
+		d, err = fullrt.NewFullRT(h, "/ipfs",
+			fullrt.DHTOption(
+				dht.BucketSize(20),
+				dht.Validator(record.NamespacedValidator{
+					"pk":   record.PublicKeyValidator{},
+					"ipns": ipns.Validator{},
+				}),
+				dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...),
+				dht.Mode(dht.ModeClient),
+			))
+
+	} else {
+		d, err = dht.New(ctx, h, dht.Mode(dht.ModeClient), dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))
+	}
 
 	if err != nil {
 		return nil, err
@@ -75,9 +87,12 @@ func newDaemon() (*daemon, error) {
 
 func (d *daemon) mustStart() {
 	// Wait for the DHT to be ready
-	for !d.dht.Ready() {
-		time.Sleep(time.Second * 10)
+	if frt, ok := d.dht.(*fullrt.FullRT); ok {
+		for !frt.Ready() {
+			time.Sleep(time.Second * 10)
+		}
 	}
+
 }
 
 func (d *daemon) runCheck(writer http.ResponseWriter, uristr string) error {
