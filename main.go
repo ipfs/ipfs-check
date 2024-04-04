@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net"
 	"net/http"
@@ -44,18 +45,19 @@ func main() {
 
 		log.Printf("ready to start serving")
 
-		/*
-			1. Is the peer findable in the DHT?
-			2. Does the multiaddr work? (what's the error)
-			3. Is the CID in the DHT?
-			4. Does the peer respond that it has the given data over Bitswap?
-		*/
-		http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-			if err := daemon.runCheck(writer, request.RequestURI); err != nil {
-				writer.Header().Add("Access-Control-Allow-Origin", "*")
-				writer.WriteHeader(http.StatusInternalServerError)
-				_, _ = writer.Write([]byte(err.Error()))
-				return
+		// 1. Is the peer findable in the DHT?
+		// 2. Does the multiaddr work? If not, what's the error?
+		// 3. Is the CID in the DHT?
+		// 4. Does the peer respond that it has the given data over Bitswap?
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Access-Control-Allow-Origin", "*")
+			data, err := daemon.runCheck(r.URL.Query())
+			if err == nil {
+				w.Header().Add("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(data)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(err.Error()))
 			}
 		})
 
