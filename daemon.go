@@ -49,7 +49,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 
 	h, err := libp2p.New(
 		libp2p.DefaultMuxers,
-		libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
+		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.ConnectionManager(c),
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 		libp2p.ResourceManager(rm),
