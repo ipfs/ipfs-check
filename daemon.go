@@ -31,9 +31,10 @@ type kademlia interface {
 }
 
 type daemon struct {
-	h            host.Host
-	dht          kademlia
-	dhtMessenger *dhtpb.ProtocolMessenger
+	h              host.Host
+	dht            kademlia
+	dhtMessenger   *dhtpb.ProtocolMessenger
+	createTestHost func() (host.Host, error)
 }
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
@@ -85,7 +86,9 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	return &daemon{h: h, dht: d, dhtMessenger: pm}, nil
+	return &daemon{h: h, dht: d, dhtMessenger: pm, createTestHost: func() (host.Host, error) {
+		return libp2p.New(libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
+	}}, nil
 }
 
 func (d *daemon) mustStart() {
@@ -151,7 +154,7 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		}
 	}
 
-	testHost, err := libp2p.New(libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}))
+	testHost, err := d.createTestHost()
 	if err != nil {
 		return nil, fmt.Errorf("server error: %w", err)
 	}
