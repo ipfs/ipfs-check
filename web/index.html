@@ -5,8 +5,7 @@
     <title>IPFS Check</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="tachyons.min.css"/>
-    <link rel="canonical" href="https://ipfs-check.on.fleek.co/">
-    <script type="text/javascript" src="dist/telemetry.min.js" ></script>
+    <link rel="canonical" href="https://check.ipfs.network/">
 </head>
 <body class="sans-serif ma0">
 <header>
@@ -56,7 +55,7 @@
                 </ul>
             </li>
             <li class="pb2">
-                <strong>Using the go-ipfs CLI</strong>
+                <strong>Using the kubo CLI</strong>
                 <ul>
                     <li>If you want to test your peerID rather than a particular address run <code>ipfs id</code> and enter <code>/p2p/{YourPeerID}</code></li>
                     <li>If you want to test a particular address then choose an entry from the list of addresses output by <code>ipfs id</code></li>
@@ -79,8 +78,8 @@
                 <strong>Multihash not advertised in the dht</strong>. Your machine has not advertised that it has the given content in the
                 IPFS Public DHT. This means that other machines will have to discover that you have the content in some other
                 way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
-                advertised by you, some rendezvous service, being on the same LAN, etc.). If using go-ipfs consider enabling the
-                <a href="https://github.com/ipfs/go-ipfs/blob/master/docs/experimental-features.md#accelerated-dht-client">Accelerated DHT Client</a>,
+                advertised by you, some rendezvous service, being on the same LAN, etc.). If using kubo consider enabling the
+                <a href="https://github.com/ipfs/kubo/blob/master/docs/experimental-features.md#accelerated-dht-client">Accelerated DHT Client</a>,
 				which will advertise content faster and in particular should enable you to continue to republish your advertisements every 24hrs as
 				required by the network.
             </li>
@@ -93,7 +92,7 @@
     </section>
 </main>
 <footer class="tc pv3">
-    <a href="https://github.com/aschmahmann/ipfs-check">Github</a>
+    <a href="https://github.com/ipfs-shipyard/ipfs-check">Github</a>
 </footer>
 <style>
     button:disabled {

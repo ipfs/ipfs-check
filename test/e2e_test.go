@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 )
@@ -15,17 +16,27 @@ var (
 	WIKIPEDIA_CID       string
 	WIKIPEDIA_PEER_ID   string
 	WIKIPEDIA_PEER_ADDR string
+	SKIP_E2E_TESTS      bool
 )
 
 func init() {
+	if os.Getenv("E2E_TESTS") == "true" {
+		SKIP_E2E_TESTS = false
+	} else {
+		SKIP_E2E_TESTS = true
+		return
+	}
 	BOOTSTRAP_PEER_ADDR = call("bash", "-c", "ipfs bootstrap list | head -n 1")
 	// ipfs name resolve /ipns/en.wikipedia-on-ipfs.org => /ipfs/CID, we remove the /ipfs/ prefix
 	WIKIPEDIA_CID = call("ipfs", "name", "resolve", "/ipns/en.wikipedia-on-ipfs.org")[6:]
-	WIKIPEDIA_PEER_ID = call("bash", "-c", fmt.Sprintf("ipfs dht findprovs %s | tail -n 1", WIKIPEDIA_CID))
+	WIKIPEDIA_PEER_ID = call("bash", "-c", fmt.Sprintf("ipfs routing findprovs %s | tail -n 1", WIKIPEDIA_CID))
 	WIKIPEDIA_PEER_ADDR = fmt.Sprintf("/p2p/%s", WIKIPEDIA_PEER_ID)
 }
 
 func TestEmptyDirOnBoostrapPeer(t *testing.T) {
+	if SKIP_E2E_TESTS {
+		t.Skip("Skipping e2e tests")
+	}
 	obj := Q(t, EMPTY_DIR_CID, BOOTSTRAP_PEER_ADDR)
 
 	obj.Value("CidInDHT").Boolean().IsTrue()
@@ -36,6 +47,9 @@ func TestEmptyDirOnBoostrapPeer(t *testing.T) {
 }
 
 func TestWikipediaOnSomeProviderPeer(t *testing.T) {
+	if SKIP_E2E_TESTS {
+		t.Skip("Skipping e2e tests")
+	}
 	obj := Q(t, WIKIPEDIA_CID, WIKIPEDIA_PEER_ADDR)
 	obj.Value("CidInDHT").Boolean().IsTrue()
 	// It seems that most peers do not provide over bitswap:
@@ -46,6 +60,9 @@ func TestWikipediaOnSomeProviderPeer(t *testing.T) {
 }
 
 func TestRandomFileOnBootstrapPeer(t *testing.T) {
+	if SKIP_E2E_TESTS {
+		t.Skip("Skipping e2e tests")
+	}
 	t.Skip("the random file CID is marked as \"not found in the DHT\" when calling bootstrap peers")
 
 	randomFileCid := call("bash", "-c", "cat /dev/urandom | head | sha256sum | ipfs add --quiet -")
@@ -65,6 +82,9 @@ func TestRandomFileOnBootstrapPeer(t *testing.T) {
 }
 
 func TestRandomFileOnLocalPeer(t *testing.T) {
+	if SKIP_E2E_TESTS {
+		t.Skip("Skipping e2e tests")
+	}
 	// ipfs id -f "<id>"
 	nodeId := call("ipfs", "id", "-f", "<id>")
 	localAddr := fmt.Sprintf("/p2p/%s", nodeId)
@@ -88,6 +108,9 @@ func TestRandomFileOnLocalPeer(t *testing.T) {
 }
 
 func TestRandomFileNeverUploadedOnBootstrapPeer(t *testing.T) {
+	if SKIP_E2E_TESTS {
+		t.Skip("Skipping e2e tests")
+	}
 	randomFileCid := call("bash", "-c", "cat /dev/urandom | head | sha256sum | ipfs add --quiet --only-hash -")
 
 	obj := Q(t, randomFileCid, BOOTSTRAP_PEER_ADDR)
