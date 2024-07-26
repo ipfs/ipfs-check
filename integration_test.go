@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/aschmahmann/ipfs-check/test"
 	bsnet "github.com/ipfs/boxo/bitswap/network"
 	bsserver "github.com/ipfs/boxo/bitswap/server"
@@ -20,8 +23,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestBasicIntegration(t *testing.T) {
@@ -142,7 +143,6 @@ func TestBasicIntegration(t *testing.T) {
 		mh, err := multihash.Sum(testData, multihash.SHA2_256, -1)
 		require.NoError(t, err)
 		testCid := cid.NewCidV1(cid.Raw, mh)
-		require.NoError(t, err)
 		err = dhtClient.Provide(ctx, testCid, true)
 		require.NoError(t, err)
 
