@@ -25,6 +25,5 @@
     "esbuild": "^0.17.4"
   },
   "dependencies": {
-    "@ipfs-shipyard/ignite-metrics": "^1.2.2"
   }
 }
