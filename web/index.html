@@ -163,8 +163,8 @@
     function formatOutput (formData, respObj) {
         const ma = formData.get('multiaddr')
         const peerIDStartIndex = ma.lastIndexOf("/p2p/")
-        const peerID = ma.substr(peerIDStartIndex + 5, ma.length)
-        const addrPart = ma.substr(0, peerIDStartIndex)
+        const peerID = ma.slice(peerIDStartIndex + 5);
+        const addrPart = ma.slice(0, peerIDStartIndex);
         let outText = ""
 
         if (respObj.ConnectionError !== "") {
@@ -174,6 +174,7 @@
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+            // only peer id passed with /p2p/PeerID
             if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
                 outText += "❌ Could not find any multiaddrs in the dht\n"
             } else {
@@ -183,6 +184,7 @@
                 }
             }
         } else {
+            // a proper maddr with an IP was passed
             let foundAddr = false
             for (const key in respObj.PeerFoundInDHT) {
                 if (key === addrPart) {
