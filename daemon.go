@@ -166,7 +166,7 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		connErr := testHost.Connect(dialCtx, *ai)
 		dialCancel()
 		if connErr != nil {
-			out.ConnectionError = connErr.Error()
+			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
 			connectionFailed = true
 		}
 	}
