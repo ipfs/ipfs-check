@@ -176,7 +176,7 @@
         if (respObj.ConnectionError !== "") {
             outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
         } else {
-            outText += "✔ Successfully connected to multiaddr\n"
+            outText += "✅ Successfully connected to multiaddr\n"
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
@@ -184,7 +184,7 @@
             if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
                 outText += "❌ Could not find any multiaddrs in the dht\n"
             } else {
-                outText += "✔ Found multiaddrs advertised in the DHT:\n"
+                outText += "✅ Found multiaddrs advertised in the DHT:\n"
                 for (const key in respObj.PeerFoundInDHT) {
                     outText += "\t" + key + "\n"
                 }
@@ -195,7 +195,7 @@
             for (const key in respObj.PeerFoundInDHT) {
                 if (key === addrPart) {
                     foundAddr = true
-                    outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                    outText += "✅ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
                     break
                 }
             }
@@ -208,7 +208,7 @@
         }
         
         if (respObj.CidInDHT === true) {
-            outText += "✔ Found multihash advertised in the dht\n"
+            outText += "✅ Found multihash advertised in the dht\n"
         } else {
             outText += "❌ Could not find the multihash in the dht\n"
         }
@@ -218,7 +218,7 @@
         } else if (respObj.DataAvailableOverBitswap.Responded !== true) {
             outText += "❌ The peer did not quickly respond if it had the CID\n"
         } else if (respObj.DataAvailableOverBitswap.Found === true) {
-            outText += "✔ The peer responded that it has the CID\n"
+            outText += "✅ The peer responded that it has the CID\n"
         } else {
             outText += "❌ The peer responded that it does not have the CID\n"
         }
