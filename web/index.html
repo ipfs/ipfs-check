@@ -111,16 +111,22 @@
             const backendURL = getBackendUrl(formData)
             
             showInQuery(formData) // add `cid` and `multiaddr` to local url query to make it shareable
-            toggleSubmitButton()            
-            const res = await fetch(backendURL, { method: 'POST' })
             toggleSubmitButton()
-            if (res.ok) {
-                const respObj = await res.json()
-                const output = formatOutput(formData, respObj)
-                showOutput(output)
-            } else {
-                const resText = await res.text()
-                showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+            try {
+              const res = await fetch(backendURL, { method: 'POST' })
+
+              if (res.ok) {
+                  const respObj = await res.json()
+                  const output = formatOutput(formData, respObj)
+                  showOutput(output)
+              } else {
+                  const resText = await res.text()
+                  showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+              }
+            } catch (e) {
+              showOutput(`⚠️ backend error: ${e}`)
+            } finally {
+              toggleSubmitButton()
             }
         })
     })
