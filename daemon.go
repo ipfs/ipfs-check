@@ -175,17 +175,17 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		out.DataAvailableOverBitswap.Error = "could not connect to peer"
 	} else {
 		// If so is the data available over Bitswap?
-		out.DataAvailableOverBitswap = checkBitswapCID(ctx, c, ma)
+		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
 	}
 
 	return out, nil
 }
 
-func checkBitswapCID(ctx context.Context, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
+func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
 	out := BitswapCheckOutput{}
 	start := time.Now()
 
-	bsOut, err := vole.CheckBitswapCID(ctx, c, ma, false)
+	bsOut, err := vole.CheckBitswapCID(ctx, host, c, ma, false)
 	if err != nil {
 		out.Error = err.Error()
 	} else {
