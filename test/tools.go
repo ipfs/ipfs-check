@@ -43,7 +43,7 @@ func Query(
 
 	e := httpexpect.Default(t, url)
 
-	return e.POST("/").
+	return e.POST("/check").
 		WithQuery("cid", cid).
 		WithQuery("multiaddr", multiaddr).
 		Expect().
