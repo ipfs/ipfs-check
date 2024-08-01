@@ -123,6 +123,9 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		return nil, err
 	}
 
+	// User has only passed a PeerID without any maddrs
+	onlyPeerID := len(ai.Addrs) == 0
+
 	c, err := cid.Decode(cidStr)
 	if err != nil {
 		return nil, err
@@ -138,9 +141,10 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 	out.PeerFoundInDHT = addrMap
 
-	// If peerID given, but no addresses check the DHT
-	if len(ai.Addrs) == 0 {
+	// If peerID given,but no addresses check the DHT
+	if onlyPeerID {
 		if peerAddrDHTErr != nil {
+			// PeerID is not resolvable via the DHT
 			connectionFailed = true
 			out.ConnectionError = peerAddrDHTErr.Error()
 		}
