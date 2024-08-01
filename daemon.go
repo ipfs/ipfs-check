@@ -123,6 +123,9 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		return nil, err
 	}
 
+	// User has only passed a PeerID without any maddrs
+	onlyPeerID := len(ai.Addrs) == 0
+
 	c, err := cid.Decode(cidStr)
 	if err != nil {
 		return nil, err
@@ -138,9 +141,10 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 	out.PeerFoundInDHT = addrMap
 
-	// If peerID given, but no addresses check the DHT
-	if len(ai.Addrs) == 0 {
+	// If peerID given,but no addresses check the DHT
+	if onlyPeerID {
 		if peerAddrDHTErr != nil {
+			// PeerID is not resolvable via the DHT
 			connectionFailed = true
 			out.ConnectionError = peerAddrDHTErr.Error()
 		}
@@ -166,7 +170,7 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		connErr := testHost.Connect(dialCtx, *ai)
 		dialCancel()
 		if connErr != nil {
-			out.ConnectionError = connErr.Error()
+			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
 			connectionFailed = true
 		}
 	}
@@ -175,17 +179,17 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		out.DataAvailableOverBitswap.Error = "could not connect to peer"
 	} else {
 		// If so is the data available over Bitswap?
-		out.DataAvailableOverBitswap = checkBitswapCID(ctx, c, ma)
+		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
 	}
 
 	return out, nil
 }
 
-func checkBitswapCID(ctx context.Context, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
+func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
 	out := BitswapCheckOutput{}
 	start := time.Now()
 
-	bsOut, err := vole.CheckBitswapCID(ctx, c, ma, false)
+	bsOut, err := vole.CheckBitswapCID(ctx, host, c, ma, false)
 	if err != nil {
 		out.Error = err.Error()
 	} else {

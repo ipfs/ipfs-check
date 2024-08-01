@@ -111,16 +111,22 @@
             const backendURL = getBackendUrl(formData)
             
             showInQuery(formData) // add `cid` and `multiaddr` to local url query to make it shareable
-            toggleSubmitButton()            
-            const res = await fetch(backendURL, { method: 'POST' })
             toggleSubmitButton()
-            if (res.ok) {
-                const respObj = await res.json()
-                const output = formatOutput(formData, respObj)
-                showOutput(output)
-            } else {
-                const resText = await res.text()
-                showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+            try {
+              const res = await fetch(backendURL, { method: 'POST' })
+
+              if (res.ok) {
+                  const respObj = await res.json()
+                  const output = formatOutput(formData, respObj)
+                  showOutput(output)
+              } else {
+                  const resText = await res.text()
+                  showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+              }
+            } catch (e) {
+              showOutput(`⚠️ backend error: ${e}`)
+            } finally {
+              toggleSubmitButton()
             }
         })
     })
@@ -163,31 +169,33 @@
     function formatOutput (formData, respObj) {
         const ma = formData.get('multiaddr')
         const peerIDStartIndex = ma.lastIndexOf("/p2p/")
-        const peerID = ma.substr(peerIDStartIndex + 5, ma.length)
-        const addrPart = ma.substr(0, peerIDStartIndex)
+        const peerID = ma.slice(peerIDStartIndex + 5);
+        const addrPart = ma.slice(0, peerIDStartIndex);
         let outText = ""
 
         if (respObj.ConnectionError !== "") {
             outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
         } else {
-            outText += "✔ Successfully connected to multiaddr\n"
+            outText += "✅ Successfully connected to multiaddr\n"
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+            // only peer id passed with /p2p/PeerID
             if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
                 outText += "❌ Could not find any multiaddrs in the dht\n"
             } else {
-                outText += "✔ Found multiaddrs advertised in the DHT:\n"
+                outText += "✅ Found multiaddrs advertised in the DHT:\n"
                 for (const key in respObj.PeerFoundInDHT) {
                     outText += "\t" + key + "\n"
                 }
             }
         } else {
+            // a proper maddr with an IP was passed
             let foundAddr = false
             for (const key in respObj.PeerFoundInDHT) {
                 if (key === addrPart) {
                     foundAddr = true
-                    outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                    outText += "✅ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
                     break
                 }
             }
@@ -200,7 +208,7 @@
         }
         
         if (respObj.CidInDHT === true) {
-            outText += "✔ Found multihash advertised in the dht\n"
+            outText += "✅ Found multihash advertised in the dht\n"
         } else {
             outText += "❌ Could not find the multihash in the dht\n"
         }
@@ -210,7 +218,7 @@
         } else if (respObj.DataAvailableOverBitswap.Responded !== true) {
             outText += "❌ The peer did not quickly respond if it had the CID\n"
         } else if (respObj.DataAvailableOverBitswap.Found === true) {
-            outText += "✔ The peer responded that it has the CID\n"
+            outText += "✅ The peer responded that it has the CID\n"
         } else {
             outText += "❌ The peer responded that it does not have the CID\n"
         }
