@@ -16,7 +16,7 @@ A tool for checking the accessibility of your data by IPFS peers
 
 ### Deploy
 
-There are web assets in `web` that interacts with the Go HTTP server that can be deployed however you deploy web assets.
+There are web assets in `web` that interact with the Go HTTP server that can be deployed however you deploy web assets.
 Maybe just deploy it on IPFS and reference it with DNSLink.
 
 For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
@@ -55,6 +55,23 @@ go build
 npx -y serve -l 3000 web
 # Then open http://localhost:3000?backendURL=http://localhost:3333
 ```
+
+## Metrics
+
+The ipfs-check server is instrumented and exposes two Prometheus metrics endpoints:
+
+- `/metrics/libp2p` exposes [go-libp2p metrics](https://blog.libp2p.io/2023-08-15-metrics-in-go-libp2p/).
+- `/metrics/http` exposes http metrics for the check endpoint.
+
+### Securing the metrics endpoints
+
+To add HTTP basic auth to the two metrics endpoints, you can use the `--metrics-auth-username` and `--metrics-auth-password` flags:
+
+```
+./ipfs-check --metrics-auth-username=user --metrics-auth-password=pass
+```
+
+Alternatively, you can use the `IPFS_CHECK_METRICS_AUTH_USER` and `IPFS_CHECK_METRICS_AUTH_PASS` env vars.
 
 ## License
 

@@ -70,7 +70,7 @@ func TestBasicIntegration(t *testing.T) {
 					libp2p.EnableHolePunching())
 			},
 		}
-		_ = startServer(ctx, d, ":1234")
+		_ = startServer(ctx, d, ":1234", "", "")
 	}()
 
 	h, err := libp2p.New()

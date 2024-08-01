@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"log"
 	"net"
@@ -31,6 +32,18 @@ func main() {
 			EnvVars: []string{"IPFS_CHECK_ACCELERATED_DHT"},
 			Usage:   "run the accelerated DHT client",
 		},
+		&cli.StringFlag{
+			Name:    "metrics-auth-username",
+			Value:   "",
+			EnvVars: []string{"IPFS_CHECK_METRICS_AUTH_USER"},
+			Usage:   "http basic auth user for the metrics endpoints",
+		},
+		&cli.StringFlag{
+			Name:    "metrics-auth-password",
+			Value:   "",
+			EnvVars: []string{"IPFS_CHECK_METRICS_AUTH_USER"},
+			Usage:   "http basic auth password for the metrics endpoints",
+		},
 	}
 	app.Action = func(cctx *cli.Context) error {
 		ctx := cctx.Context
@@ -38,7 +51,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		return startServer(ctx, d, cctx.String("address"))
+		return startServer(ctx, d, cctx.String("address"), cctx.String("metrics-auth-username"), cctx.String("metrics-auth-password"))
 	}
 
 	err := app.Run(os.Args)
@@ -47,7 +60,7 @@ func main() {
 	}
 }
 
-func startServer(ctx context.Context, d *daemon, tcpListener string) error {
+func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
 	l, err := net.Listen("tcp", tcpListener)
 	if err != nil {
 		return err
@@ -120,11 +133,9 @@ func startServer(ctx context.Context, d *daemon, tcpListener string) error {
 	// 3. Is the CID in the DHT?
 	// 4. Does the peer respond that it has the given data over Bitswap?
 	http.Handle("/check", instrumentedHandler)
-	http.Handle("/debug/libp2p", promhttp.Handler())
-	http.Handle("/debug/http", promhttp.HandlerFor(
-		reg,
-		promhttp.HandlerOpts{},
-	))
+
+	http.Handle("/metrics/libp2p", BasicAuth(promhttp.Handler(), metricsUsername, metricPassword))
+	http.Handle("/metrics/http", BasicAuth(promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), metricsUsername, metricPassword))
 
 	done := make(chan error, 1)
 	go func() {
@@ -139,4 +150,23 @@ func startServer(ctx context.Context, d *daemon, tcpListener string) error {
 		_ = l.Close()
 		return <-done
 	}
+}
+
+func BasicAuth(handler http.Handler, username, password string) http.Handler {
+	if username == "" || password == "" {
+		log.Println("Warning: no http basic auth for the metrics endpoint.")
+		return handler
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+
+		if !ok || subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
 }
