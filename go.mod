@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gavv/httpexpect/v2 v2.16.0
-	github.com/ipfs-shipyard/vole v0.0.0-20240704031213-bd92d8918fb2
+	github.com/ipfs-shipyard/vole v0.0.0-20240801195547-d7b80a461193
 	github.com/ipfs/boxo v0.21.0
 	github.com/ipfs/go-block-format v0.2.0
 	github.com/ipfs/go-cid v0.4.1
@@ -17,6 +17,7 @@ require (
 	github.com/libp2p/go-msgio v0.3.0
 	github.com/multiformats/go-multiaddr v0.13.0
 	github.com/multiformats/go-multihash v0.2.3
+	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.3
 )
@@ -132,7 +133,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect
-	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
