@@ -169,8 +169,10 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 
 	if !connectionFailed {
 		// Is the target connectable
-		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*3)
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*6)
 		connErr := testHost.Connect(dialCtx, *ai)
+		// Testing shows that it's pretty common for Connect to succeeed but for NewStream to fail.
+		// This causes the output to be confusing, because ConnectionError is an empty string
 		dialCancel()
 		if connErr != nil {
 			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
