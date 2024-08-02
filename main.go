@@ -41,7 +41,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "metrics-auth-password",
 			Value:   "",
-			EnvVars: []string{"IPFS_CHECK_METRICS_AUTH_USER"},
+			EnvVars: []string{"IPFS_CHECK_METRICS_AUTH_PASS"},
 			Usage:   "http basic auth password for the metrics endpoints",
 		},
 	}
