@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aschmahmann/ipfs-check/test"
+	"github.com/ipfs-shipyard/ipfs-check/test"
 	bsnet "github.com/ipfs/boxo/bitswap/network"
 	bsserver "github.com/ipfs/boxo/bitswap/server"
 	"github.com/ipfs/boxo/blockstore"
