@@ -1,4 +1,4 @@
-module github.com/aschmahmann/ipfs-check
+module github.com/ipfs-shipyard/ipfs-check
 
 go 1.21
 
