@@ -89,6 +89,8 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	return &daemon{h: h, dht: d, dhtMessenger: pm, createTestHost: func() (host.Host, error) {
 		return libp2p.New(
 			libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
+			libp2p.DefaultMuxers,
+			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 			libp2p.EnableHolePunching(),
 		)
 	}}, nil
@@ -191,6 +193,7 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 }
 
 func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
+	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the temporary peer: %s", c, ma, host.ID())
 	out := BitswapCheckOutput{}
 	start := time.Now()
 
@@ -205,6 +208,7 @@ func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiadd
 		}
 	}
 
+	log.Printf("End of Bitswap check for %s by attempting to connect to ma: %v", c, ma)
 	out.Duration = time.Since(start)
 	return out
 }
