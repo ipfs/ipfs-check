@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gavv/httpexpect/v2 v2.16.0
-	github.com/ipfs-shipyard/vole v0.0.0-20240801195547-d7b80a461193
+	github.com/ipfs-shipyard/vole v0.0.0-20240806114300-fc3cb2557ac4
 	github.com/ipfs/boxo v0.21.0
 	github.com/ipfs/go-block-format v0.2.0
 	github.com/ipfs/go-cid v0.4.1

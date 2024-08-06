@@ -209,8 +209,8 @@ github.com/huin/goupnp v1.3.0/go.mod h1:gnGPsThkYa7bFi/KWmEysQRf48l2dvR5bxr2OFck
 github.com/imkira/go-interpol v1.1.0 h1:KIiKr0VSG2CUW1hl1jpiyuzuJeKUUpC8iM1AIE7N1Vk=
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
-github.com/ipfs-shipyard/vole v0.0.0-20240801195547-d7b80a461193 h1:5HPfcUkFXM5KvIKzViKNs00NfLP22IW/KBuV7uFoQl0=
-github.com/ipfs-shipyard/vole v0.0.0-20240801195547-d7b80a461193/go.mod h1:ibnGHr4b6P1OYWIR2HLKT1ONUbmd1ZGe9gzRWb/Kcto=
+github.com/ipfs-shipyard/vole v0.0.0-20240806114300-fc3cb2557ac4 h1:X8P6qSSmKa0li0V98juwY/3X9K3TdJm7SB9yRg7Ns4U=
+github.com/ipfs-shipyard/vole v0.0.0-20240806114300-fc3cb2557ac4/go.mod h1:waOudWA9qapwuMBZvG6wCLemHsF/bfPLcR9jOt8ufCo=
 github.com/ipfs/bbloom v0.0.4 h1:Gi+8EGJ2y5qiD5FbsbpX/TMNcJw8gSqr7eyjHa4Fhvs=
 github.com/ipfs/bbloom v0.0.4/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyqMG0=
 github.com/ipfs/boxo v0.21.0 h1:XpGXb+TQQ0IUdYaeAxGzWjSs6ow/Lce148A/2IbRDVE=
