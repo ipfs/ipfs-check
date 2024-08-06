@@ -182,7 +182,7 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		out.DataAvailableOverBitswap.Error = "could not connect to peer"
 	} else {
 		// If so is the data available over Bitswap?
-		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
+		out.DataAvailableOverBitswap = checkBitswapCID(ctx, nil, c, ma)
 	}
 
 	return out, nil
