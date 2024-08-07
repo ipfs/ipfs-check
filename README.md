@@ -99,7 +99,7 @@ type BitswapCheckOutput struct {
 
 3. Is the peer contactable with the address the user gave us?
 
-- If `ConnectionError` is any empty string. Otherwise, it contains the error
+- If `ConnectionError` is any empty string, the peer can be reached. Otherwise, it contains the error.
 
 4. Is the address the user gave us present in the DHT?
 
@@ -107,7 +107,7 @@ type BitswapCheckOutput struct {
 
 1. Does the peer say they have at least the block for the CID (doesn't say anything about the rest of any associated DAG) over Bitswap?
 
-- `DataAvailableOverBitswap` contains the duration of the check and whether the peer responded and has the block.
+- `DataAvailableOverBitswap` contains the duration of the check and whether the peer responded and has the block. If there was an error, `DataAvailableOverBitswap.Error` will contain the error. 
 
 ## Metrics
 
