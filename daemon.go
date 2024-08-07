@@ -88,6 +88,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 
 	return &daemon{h: h, dht: d, dhtMessenger: pm, createTestHost: func() (host.Host, error) {
 		return libp2p.New(
+			libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 			libp2p.DefaultMuxers,
 			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 			libp2p.EnableHolePunching(),
