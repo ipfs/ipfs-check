@@ -20,6 +20,7 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
@@ -170,11 +171,13 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	defer testHost.Close()
 
 	if !connectionFailed {
-		// Is the target connectable
-		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*6)
-		connErr := testHost.Connect(dialCtx, *ai)
-		// Testing shows that it's pretty common for Connect to succeeed but for NewStream to fail.
-		// This causes the output to be confusing, because ConnectionError is an empty string
+		// Test Is the target connectable
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+
+		// we call NewStream instead of Connect to force NAT hole punching
+		// See https://github.com/libp2p/go-libp2p/issues/2714
+		testHost.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.RecentlyConnectedAddrTTL)
+		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
 			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
