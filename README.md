@@ -2,7 +2,7 @@
 
 > Check if you can find your content on IPFS
 
-A tool for checking the accessibility of your data by IPFS peers
+A tool for checking the retrievability of data by IPFS peers
 
 ## Documentation
 
