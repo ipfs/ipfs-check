@@ -75,10 +75,11 @@ The server performs several checks given a CID. The results of the check are exp
 
 ```go
 type output struct {
- ConnectionError          string
- PeerFoundInDHT           map[string]int
- CidInDHT                 bool
- DataAvailableOverBitswap BitswapCheckOutput
+	ConnectionError          string
+	PeerFoundInDHT           map[string]int
+	CidInDHT                 bool
+	ConnectionMaddr          string
+	DataAvailableOverBitswap BitswapCheckOutput
 }
 
 type BitswapCheckOutput struct {
@@ -99,7 +100,8 @@ type BitswapCheckOutput struct {
 
 3. Is the peer contactable with the address the user gave us?
 
-- If `ConnectionError` is any empty string, the peer can be reached. Otherwise, it contains the error.
+- If `ConnectionError` is any empty string, a connection to the peer was successful. Otherwise, it contains the error.
+- If a connection is successful, `ConnectionMaddr` contains the multiaddr that was used to connect.
 
 4. Is the address the user gave us present in the DHT?
 
