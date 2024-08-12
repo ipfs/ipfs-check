@@ -190,7 +190,6 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	} else {
 		// If so is the data available over Bitswap?
 		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
-		// testHost.Network().Conns()
 		conns := testHost.Network().ConnsToPeer(ai.ID)
 		if len(conns) > 0 {
 			maddr := conns[0].RemoteMultiaddr()
