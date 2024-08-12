@@ -93,6 +93,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 			libp2p.DefaultMuxers,
 			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 			libp2p.EnableHolePunching(),
+			libp2p.UserAgent("ipfs-check"),
 		)
 	}}, nil
 }
