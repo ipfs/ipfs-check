@@ -5,8 +5,7 @@
     <title>IPFS Check</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="tachyons.min.css"/>
-    <link rel="canonical" href="https://ipfs-check.on.fleek.co/">
-    <script type="text/javascript" src="dist/telemetry.min.js" ></script>
+    <link rel="canonical" href="https://check.ipfs.network/">
 </head>
 <body class="sans-serif ma0">
 <header>
@@ -56,7 +55,7 @@
                 </ul>
             </li>
             <li class="pb2">
-                <strong>Using the go-ipfs CLI</strong>
+                <strong>Using the kubo CLI</strong>
                 <ul>
                     <li>If you want to test your peerID rather than a particular address run <code>ipfs id</code> and enter <code>/p2p/{YourPeerID}</code></li>
                     <li>If you want to test a particular address then choose an entry from the list of addresses output by <code>ipfs id</code></li>
@@ -79,8 +78,8 @@
                 <strong>Multihash not advertised in the dht</strong>. Your machine has not advertised that it has the given content in the
                 IPFS Public DHT. This means that other machines will have to discover that you have the content in some other
                 way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
-                advertised by you, some rendezvous service, being on the same LAN, etc.). If using go-ipfs consider enabling the
-                <a href="https://github.com/ipfs/go-ipfs/blob/master/docs/experimental-features.md#accelerated-dht-client">Accelerated DHT Client</a>,
+                advertised by you, some rendezvous service, being on the same LAN, etc.). If using kubo consider enabling the
+                <a href="https://github.com/ipfs/kubo/blob/master/docs/experimental-features.md#accelerated-dht-client">Accelerated DHT Client</a>,
 				which will advertise content faster and in particular should enable you to continue to republish your advertisements every 24hrs as
 				required by the network.
             </li>
@@ -93,7 +92,7 @@
     </section>
 </main>
 <footer class="tc pv3">
-    <a href="https://github.com/aschmahmann/ipfs-check">Github</a>
+    <a href="https://github.com/ipfs-shipyard/ipfs-check">Github</a>
 </footer>
 <style>
     button:disabled {
@@ -112,16 +111,22 @@
             const backendURL = getBackendUrl(formData)
             
             showInQuery(formData) // add `cid` and `multiaddr` to local url query to make it shareable
-            toggleSubmitButton()            
-            const res = await fetch(backendURL, { method: 'POST' })
             toggleSubmitButton()
-            if (res.ok) {
-                const respObj = await res.json()
-                const output = formatOutput(formData, respObj)
-                showOutput(output)
-            } else {
-                const resText = await res.text()
-                showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+            try {
+              const res = await fetch(backendURL, { method: 'POST' })
+
+              if (res.ok) {
+                  const respObj = await res.json()
+                  const output = formatOutput(formData, respObj)
+                  showOutput(output)
+              } else {
+                  const resText = await res.text()
+                  showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+              }
+            } catch (e) {
+              showOutput(`⚠️ backend error: ${e}`)
+            } finally {
+              toggleSubmitButton()
             }
         })
     })
@@ -148,7 +153,7 @@
         // dont send backendURL to the backend!
         params.delete('backendURL')
         // backendURL is the base, params are appended as query string
-        return new URL('?' + params, formData.get('backendURL'))
+        return new URL('/check?' + params, formData.get('backendURL'))
     }
 
     function showOutput (output) {
@@ -164,31 +169,33 @@
     function formatOutput (formData, respObj) {
         const ma = formData.get('multiaddr')
         const peerIDStartIndex = ma.lastIndexOf("/p2p/")
-        const peerID = ma.substr(peerIDStartIndex + 5, ma.length)
-        const addrPart = ma.substr(0, peerIDStartIndex)
+        const peerID = ma.slice(peerIDStartIndex + 5);
+        const addrPart = ma.slice(0, peerIDStartIndex);
         let outText = ""
 
         if (respObj.ConnectionError !== "") {
             outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
         } else {
-            outText += "✔ Successfully connected to multiaddr\n"
+            outText += "✅ Successfully connected to multiaddr\n"
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+            // only peer id passed with /p2p/PeerID
             if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
                 outText += "❌ Could not find any multiaddrs in the dht\n"
             } else {
-                outText += "✔ Found multiaddrs advertised in the DHT:\n"
+                outText += "✅ Found multiaddrs advertised in the DHT:\n"
                 for (const key in respObj.PeerFoundInDHT) {
                     outText += "\t" + key + "\n"
                 }
             }
         } else {
+            // a proper maddr with an IP was passed
             let foundAddr = false
             for (const key in respObj.PeerFoundInDHT) {
                 if (key === addrPart) {
                     foundAddr = true
-                    outText += "✔ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
+                    outText += "✅ Found multiaddr with " + respObj.PeerFoundInDHT[key] + " dht peers\n"
                     break
                 }
             }
@@ -201,7 +208,7 @@
         }
         
         if (respObj.CidInDHT === true) {
-            outText += "✔ Found multihash advertised in the dht\n"
+            outText += "✅ Found multihash advertised in the dht\n"
         } else {
             outText += "❌ Could not find the multihash in the dht\n"
         }
@@ -211,7 +218,7 @@
         } else if (respObj.DataAvailableOverBitswap.Responded !== true) {
             outText += "❌ The peer did not quickly respond if it had the CID\n"
         } else if (respObj.DataAvailableOverBitswap.Found === true) {
-            outText += "✔ The peer responded that it has the CID\n"
+            outText += "✅ The peer responded that it has the CID\n"
         } else {
             outText += "❌ The peer responded that it does not have the CID\n"
         }
