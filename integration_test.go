@@ -74,8 +74,8 @@ func TestBasicIntegration(t *testing.T) {
 	}()
 
 	h, err := libp2p.New()
-	defer h.Close()
 	require.NoError(t, err)
+	defer h.Close()
 	bn := bsnet.NewFromIpfsHost(h, routinghelpers.Null{})
 	bstore := blockstore.NewBlockstore(dssync.MutexWrap(datastore.NewMapDatastore()))
 	bswap := bsserver.New(ctx, bn, bstore)
