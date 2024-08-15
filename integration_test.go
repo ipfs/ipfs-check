@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs-shipyard/ipfs-check/test"
 	bsnet "github.com/ipfs/boxo/bitswap/network"
 	bsserver "github.com/ipfs/boxo/bitswap/server"
 	"github.com/ipfs/boxo/blockstore"
@@ -13,6 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	"github.com/ipfs/ipfs-check/test"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	mplex "github.com/libp2p/go-libp2p-mplex"

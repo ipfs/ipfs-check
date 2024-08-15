@@ -21,7 +21,7 @@ Maybe just deploy it on IPFS and reference it with DNSLink.
 
 For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
 
-When deploying to prod, since the addition of telemetry (https://github.com/ipfs-shipyard/ipfs-check/pull/30) you will also need to run the following before serving the web assets:
+When deploying to prod, since the addition of telemetry (https://github.com/ipfs/ipfs-check/pull/30) you will also need to run the following before serving the web assets:
 
 ```
 cd web

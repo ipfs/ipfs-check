@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ipfs-shipyard/ipfs-check.git"
+    "url": "git+https://github.com/ipfs/ipfs-check.git"
   },
   "keywords": [
     "ipfs",
@@ -18,9 +18,9 @@
   "author": "aschmahmann",
   "license": "Apache-2.0 OR MIT",
   "bugs": {
-    "url": "https://github.com/ipfs-shipyard/ipfs-check/issues"
+    "url": "https://github.com/ipfs/ipfs-check/issues"
   },
-  "homepage": "https://github.com/ipfs-shipyard/ipfs-check#readme",
+  "homepage": "https://github.com/ipfs/ipfs-check#readme",
   "devDependencies": {
     "esbuild": "^0.17.4"
   },
