@@ -20,6 +20,7 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
@@ -89,7 +90,10 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	return &daemon{h: h, dht: d, dhtMessenger: pm, createTestHost: func() (host.Host, error) {
 		return libp2p.New(
 			libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
+			libp2p.DefaultMuxers,
+			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 			libp2p.EnableHolePunching(),
+			libp2p.UserAgent("ipfs-check"),
 		)
 	}}, nil
 }
@@ -168,9 +172,13 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	defer testHost.Close()
 
 	if !connectionFailed {
-		// Is the target connectable
-		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*3)
-		connErr := testHost.Connect(dialCtx, *ai)
+		// Test Is the target connectable
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+
+		// we call NewStream instead of Connect to force NAT hole punching
+		// See https://github.com/libp2p/go-libp2p/issues/2714
+		testHost.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.RecentlyConnectedAddrTTL)
+		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
 			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
@@ -183,12 +191,19 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	} else {
 		// If so is the data available over Bitswap?
 		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
+		conns := testHost.Network().ConnsToPeer(ai.ID)
+		if len(conns) > 0 {
+			maddr := conns[0].RemoteMultiaddr()
+			addrWithPeerID := maddr.Encapsulate(multiaddr.StringCast("/p2p/" + ai.ID.String()))
+			out.ConnectionMaddr = addrWithPeerID.String()
+		}
 	}
 
 	return out, nil
 }
 
 func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
+	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the temporary peer: %s", c, ma, host.ID())
 	out := BitswapCheckOutput{}
 	start := time.Now()
 
@@ -203,6 +218,7 @@ func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiadd
 		}
 	}
 
+	log.Printf("End of Bitswap check for %s by attempting to connect to ma: %v", c, ma)
 	out.Duration = time.Since(start)
 	return out
 }
@@ -218,6 +234,7 @@ type output struct {
 	ConnectionError          string
 	PeerFoundInDHT           map[string]int
 	CidInDHT                 bool
+	ConnectionMaddr          string
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 

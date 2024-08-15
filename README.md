@@ -56,6 +56,61 @@ npx -y serve -l 3000 web
 # Then open http://localhost:3000?backendURL=http://localhost:3333
 ```
 
+## Running a check
+
+To run a check, make an http call with the `cid` and `multiaddr` query parameters:
+
+```bash
+$ curl "localhost:3333/check?cid=bafybeicklkqcnlvtiscr2hzkubjwnwjinvskffn4xorqeduft3wq7vm5u4&multiaddr=/p2p/12D3KooWRBy97UB99e3J6hiPesre1MZeuNQvfan4gBziswrRJsNK"
+```
+
+Note that the `multiaddr` can be:
+
+- A `multiaddr` with just a Peer ID, i.e. `/p2p/PeerID`. In this case, the server will attempt to resolve this Peer ID with the DHT and connect to any of resolved addresses.
+- A `multiaddr` with an address port and transport, and Peer ID, e.g. `/ip4/140.238.164.150/udp/4001/quic-v1/p2p/12D3KooWRTUNZVyVf7KBBNZ6MRR5SYGGjKzS6xyiU5zBeY9wxomo/p2p-circuit/p2p/12D3KooWRBy97UB99e3J6hiPesre1MZeuNQvfan4gBziswrRJsNK`. In this case, the Bitswap check will only happen using the passed multiaddr.
+
+### Check results
+
+The server performs several checks given a CID. The results of the check are expressed by the `output` type:
+
+```go
+type output struct {
+	ConnectionError          string
+	PeerFoundInDHT           map[string]int
+	CidInDHT                 bool
+	ConnectionMaddr          string
+	DataAvailableOverBitswap BitswapCheckOutput
+}
+
+type BitswapCheckOutput struct {
+	Duration  time.Duration
+	Found     bool
+	Responded bool
+	Error     string
+}
+```
+
+1. Is the CID (really multihash) advertised in the DHT (or later IPNI)?
+
+- `CidInDHT`
+
+2. Are the peer's addresses discoverable (particularly useful if the announcements are DHT based, but also independently useful)
+
+- `PeerFoundInDHT`
+
+3. Is the peer contactable with the address the user gave us?
+
+- If `ConnectionError` is any empty string, a connection to the peer was successful. Otherwise, it contains the error.
+- If a connection is successful, `ConnectionMaddr` contains the multiaddr that was used to connect.
+
+4. Is the address the user gave us present in the DHT?
+
+- If `PeerFoundInDHT` contains the address the user passed in
+
+1. Does the peer say they have at least the block for the CID (doesn't say anything about the rest of any associated DAG) over Bitswap?
+
+- `DataAvailableOverBitswap` contains the duration of the check and whether the peer responded and has the block. If there was an error, `DataAvailableOverBitswap.Error` will contain the error. 
+
 ## Metrics
 
 The ipfs-check server is instrumented and exposes two Prometheus metrics endpoints:

@@ -38,7 +38,13 @@
                 </datalist>
             </details>
             <div class="db mv4">
-                <button id="submit" type="submit" class="db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">Run Test</button>
+                <button id="submit" type="submit" class="flex items-center db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">
+                  <svg id="loading-spinner" class="dn animate-spin mr2 h2 w2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="o-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="o-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Run Test
+                </button>
             </div>
             <div id="output" style="white-space:pre;" class="lh-copy fw6"></div>
         </form>
@@ -95,6 +101,16 @@
     <a href="https://github.com/ipfs-shipyard/ipfs-check">Github</a>
 </footer>
 <style>
+      .animate-spin { animation: spin 2s linear infinite }
+
+      @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
     button:disabled {
         opacity: 50% !important;
     }
@@ -164,6 +180,8 @@
     function toggleSubmitButton() {
         const button = document.getElementById('submit')
         button.toggleAttribute('disabled')
+        const spinner = document.getElementById('loading-spinner')
+        spinner.classList.toggle('dn')
     }
 
     function formatOutput (formData, respObj) {
@@ -176,7 +194,7 @@
         if (respObj.ConnectionError !== "") {
             outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
         } else {
-            outText += "✅ Successfully connected to multiaddr\n"
+            outText += `✅ Successfully connected to multiaddr ${respObj.ConnectionMaddr}\n`
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
