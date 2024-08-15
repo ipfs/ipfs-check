@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -77,7 +78,23 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 
 	checkHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
-		data, err := d.runCheck(r.URL.Query())
+
+		maStr := r.URL.Query().Get("multiaddr")
+		cidStr := r.URL.Query().Get("cid")
+
+		if cidStr == "" {
+			err = errors.New("missing 'cid' argument")
+		}
+
+		var err error
+		var data interface{}
+
+		if maStr == "" {
+			data, err = d.runCidCheck(cidStr)
+		} else {
+			data, err = d.runPeerCheck(maStr, cidStr)
+		}
+
 		if err == nil {
 			w.Header().Add("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(data)

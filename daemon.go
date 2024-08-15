@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"sync"
 	"time"
 
@@ -37,6 +35,10 @@ type daemon struct {
 	dhtMessenger   *dhtpb.ProtocolMessenger
 	createTestHost func() (host.Host, error)
 }
+
+// number of providers at which to stop looking for providers in the DHT
+// When doing a check only with a CID
+var MaxProvidersCount = 3
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
@@ -108,18 +110,79 @@ func (d *daemon) mustStart() {
 
 }
 
-func (d *daemon) runCheck(query url.Values) (*output, error) {
-	maStr := query.Get("multiaddr")
-	cidStr := query.Get("cid")
+type providerOutput struct {
+	ID                 string
+	Addrs              []string
+	ConnectionMaddrs   []string
+	BitswapCheckOutput BitswapCheckOutput
+}
 
-	if maStr == "" {
-		return nil, errors.New("missing 'multiaddr' argument")
+func (d *daemon) runCidCheck(cidStr string) (*[]providerOutput, error) {
+	cid, err := cid.Decode(cidStr)
+	if err != nil {
+		return nil, err
 	}
 
-	if cidStr == "" {
-		return nil, errors.New("missing 'cid' argument")
+	ctx := context.Background()
+	out := make([]providerOutput, 0, 3)
+
+	queryCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	provsCh := d.dht.FindProvidersAsync(queryCtx, cid, MaxProvidersCount)
+
+	for provider := range provsCh {
+		addrs := make([]string, len(provider.Addrs))
+		for i, addr := range provider.Addrs {
+			addrs[i] = addr.String()
+		}
+
+		provOutput := providerOutput{
+			ID:                 provider.ID.String(),
+			Addrs:              addrs,
+			BitswapCheckOutput: BitswapCheckOutput{},
+		}
+
+		testHost, err := d.createTestHost()
+		if err != nil {
+			return nil, fmt.Errorf("server error: %w", err)
+		}
+		defer testHost.Close()
+
+		// Test Is the target connectable
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+
+		// we call NewStream to force NAT hole punching
+		// See https://github.com/libp2p/go-libp2p/issues/2714
+		testHost.Connect(dialCtx, provider)
+		_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
+		dialCancel()
+
+		if connErr != nil {
+			provOutput.BitswapCheckOutput.Error = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
+		} else {
+			// TODO: Modify checkBitswapCID and vole to accept `AddrInfo` so that it can test any of the connections
+			provOutput.BitswapCheckOutput = checkBitswapCID(ctx, testHost, cid, provider.Addrs[0])
+
+			for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
+				provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
+			}
+		}
+
+		out = append(out, provOutput)
 	}
 
+	return &out, nil
+}
+
+type peerCheckOutput struct {
+	ConnectionError          string
+	PeerFoundInDHT           map[string]int
+	CidInDHT                 bool
+	ConnectionMaddrs         []string
+	DataAvailableOverBitswap BitswapCheckOutput
+}
+
+func (d *daemon) runPeerCheck(maStr, cidStr string) (*peerCheckOutput, error) {
 	ma, err := multiaddr.NewMultiaddr(maStr)
 	if err != nil {
 		return nil, err
@@ -139,11 +202,11 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	}
 
 	ctx := context.Background()
-	out := &output{}
+	out := &peerCheckOutput{}
 
 	connectionFailed := false
 
-	out.CidInDHT = providerRecordInDHT(ctx, d.dht, c, ai.ID)
+	out.CidInDHT = providerRecordForPeerInDHT(ctx, d.dht, c, ai.ID)
 
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 	out.PeerFoundInDHT = addrMap
@@ -202,6 +265,13 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	return out, nil
 }
 
+type BitswapCheckOutput struct {
+	Duration  time.Duration
+	Found     bool
+	Responded bool
+	Error     string
+}
+
 func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
 	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the temporary peer: %s", c, ma, host.ID())
 	out := BitswapCheckOutput{}
@@ -221,21 +291,6 @@ func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiadd
 	log.Printf("End of Bitswap check for %s by attempting to connect to ma: %v", c, ma)
 	out.Duration = time.Since(start)
 	return out
-}
-
-type BitswapCheckOutput struct {
-	Duration  time.Duration
-	Found     bool
-	Responded bool
-	Error     string
-}
-
-type output struct {
-	ConnectionError          string
-	PeerFoundInDHT           map[string]int
-	CidInDHT                 bool
-	ConnectionMaddrs         []string
-	DataAvailableOverBitswap BitswapCheckOutput
 }
 
 func peerAddrsInDHT(ctx context.Context, d kademlia, messenger *dhtpb.ProtocolMessenger, p peer.ID) (map[string]int, error) {
@@ -281,7 +336,7 @@ func peerAddrsInDHT(ctx context.Context, d kademlia, messenger *dhtpb.ProtocolMe
 	return addrMap, nil
 }
 
-func providerRecordInDHT(ctx context.Context, d kademlia, c cid.Cid, p peer.ID) bool {
+func providerRecordForPeerInDHT(ctx context.Context, d kademlia, c cid.Cid, p peer.ID) bool {
 	queryCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	provsCh := d.FindProvidersAsync(queryCtx, c, 0)
