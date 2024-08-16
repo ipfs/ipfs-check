@@ -19,7 +19,6 @@ import (
 	mplex "github.com/libp2p/go-libp2p-mplex"
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
@@ -371,22 +370,4 @@ func execOnMany(ctx context.Context, waitFrac float64, timeoutPerOp time.Duratio
 		}
 	}
 	return numSuccess
-}
-
-// Given a list of connections to a peer, return the remote maddr of the direct connection
-func getDirectMaddr(conns []network.Conn) multiaddr.Multiaddr {
-	if len(conns) == 0 {
-		return nil
-	}
-outer:
-	for _, c := range conns {
-		for _, proto := range c.RemoteMultiaddr().Protocols() {
-			if proto.Name == "p2p-circuit" {
-				continue outer
-			}
-		}
-		return c.RemoteMultiaddr()
-
-	}
-	return nil
 }
