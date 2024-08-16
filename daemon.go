@@ -25,7 +25,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 type kademlia interface {
@@ -373,7 +372,7 @@ func execOnMany(ctx context.Context, waitFrac float64, timeoutPerOp time.Duratio
 }
 
 // Given a list of connections to a peer, return the remote maddr of the direct connection
-func getDirectMaddr(conns []network.Conn) ma.Multiaddr {
+func getDirectMaddr(conns []network.Conn) multiaddr.Multiaddr {
 	if len(conns) == 0 {
 		return nil
 	}
