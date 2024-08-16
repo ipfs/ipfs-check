@@ -19,11 +19,13 @@ import (
 	mplex "github.com/libp2p/go-libp2p-mplex"
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type kademlia interface {
@@ -191,12 +193,10 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	} else {
 		// If so is the data available over Bitswap?
 		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
-		conns := testHost.Network().ConnsToPeer(ai.ID)
-		if len(conns) > 0 {
-			maddr := conns[0].RemoteMultiaddr()
-			addrWithPeerID := maddr.Encapsulate(multiaddr.StringCast("/p2p/" + ai.ID.String()))
-			out.ConnectionMaddr = addrWithPeerID.String()
-		}
+
+		// Get the direct connection in case it was hole punched and we have both a limited connection
+		directMaddr := getDirectMaddr(testHost.Network().ConnsToPeer(ai.ID))
+		out.ConnectionMaddr = directMaddr.String()
 	}
 
 	return out, nil
@@ -370,4 +370,22 @@ func execOnMany(ctx context.Context, waitFrac float64, timeoutPerOp time.Duratio
 		}
 	}
 	return numSuccess
+}
+
+// Given a list of connections to a peer, return the remote maddr of the direct connection
+func getDirectMaddr(conns []network.Conn) ma.Multiaddr {
+	if len(conns) == 0 {
+		return nil
+	}
+outer:
+	for _, c := range conns {
+		for _, proto := range c.RemoteMultiaddr().Protocols() {
+			if proto.Name == "p2p-circuit" {
+				continue outer
+			}
+		}
+		return c.RemoteMultiaddr()
+
+	}
+	return nil
 }
