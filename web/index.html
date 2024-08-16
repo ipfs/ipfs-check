@@ -194,7 +194,7 @@
         if (respObj.ConnectionError !== "") {
             outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
         } else {
-            outText += `✅ Successfully connected to multiaddr ${respObj.ConnectionMaddr}\n`
+            outText += `✅ Successfully connected to multiaddr(s): \n\t${respObj?.ConnectionMaddrs.join('\n\t')}\n`
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {

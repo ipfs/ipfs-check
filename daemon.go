@@ -194,8 +194,10 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
 
 		// Get the direct connection in case it was hole punched and we have both a limited connection
-		directMaddr := getDirectMaddr(testHost.Network().ConnsToPeer(ai.ID))
-		out.ConnectionMaddr = directMaddr.String()
+		// directMaddr := getDirectMaddr()
+		for _, c := range testHost.Network().ConnsToPeer(ai.ID) {
+			out.ConnectionMaddrs = append(out.ConnectionMaddrs, c.RemoteMultiaddr().String())
+		}
 	}
 
 	return out, nil
@@ -233,7 +235,7 @@ type output struct {
 	ConnectionError          string
 	PeerFoundInDHT           map[string]int
 	CidInDHT                 bool
-	ConnectionMaddr          string
+	ConnectionMaddrs         []string
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 

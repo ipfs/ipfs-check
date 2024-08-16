@@ -78,7 +78,7 @@ type output struct {
 	ConnectionError          string
 	PeerFoundInDHT           map[string]int
 	CidInDHT                 bool
-	ConnectionMaddr          string
+	ConnectionMaddrs         string[]
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 
@@ -101,7 +101,7 @@ type BitswapCheckOutput struct {
 3. Is the peer contactable with the address the user gave us?
 
 - If `ConnectionError` is any empty string, a connection to the peer was successful. Otherwise, it contains the error.
-- If a connection is successful, `ConnectionMaddr` contains the multiaddr that was used to connect.
+- If a connection is successful, `ConnectionMaddrs` contains the multiaddrs that were used to connect. If the peer is behind NAT, it will contain both the circuit relay multiaddr and the direct maddr.
 
 4. Is the address the user gave us present in the DHT?
 
