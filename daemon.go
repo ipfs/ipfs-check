@@ -191,11 +191,11 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	} else {
 		// If so is the data available over Bitswap?
 		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
-		conns := testHost.Network().ConnsToPeer(ai.ID)
-		if len(conns) > 0 {
-			maddr := conns[0].RemoteMultiaddr()
-			addrWithPeerID := maddr.Encapsulate(multiaddr.StringCast("/p2p/" + ai.ID.String()))
-			out.ConnectionMaddr = addrWithPeerID.String()
+
+		// Get the direct connection in case it was hole punched and we have both a limited connection
+		// directMaddr := getDirectMaddr()
+		for _, c := range testHost.Network().ConnsToPeer(ai.ID) {
+			out.ConnectionMaddrs = append(out.ConnectionMaddrs, c.RemoteMultiaddr().String())
 		}
 	}
 
@@ -234,7 +234,7 @@ type output struct {
 	ConnectionError          string
 	PeerFoundInDHT           map[string]int
 	CidInDHT                 bool
-	ConnectionMaddr          string
+	ConnectionMaddrs         []string
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 

@@ -98,7 +98,7 @@
     </section>
 </main>
 <footer class="tc pv3">
-    <a href="https://github.com/ipfs-shipyard/ipfs-check">Github</a>
+    <a href="https://github.com/ipfs/ipfs-check">Github</a>
 </footer>
 <style>
       .animate-spin { animation: spin 2s linear infinite }
@@ -194,7 +194,8 @@
         if (respObj.ConnectionError !== "") {
             outText += "❌ Could not connect to multiaddr: " + respObj.ConnectionError + "\n"
         } else {
-            outText += `✅ Successfully connected to multiaddr ${respObj.ConnectionMaddr}\n`
+            const madrs = respObj?.ConnectionMaddrs
+            outText += `✅ Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }: \n\t${madrs.join('\n\t')}\n`
         }
 
         if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {

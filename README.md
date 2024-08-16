@@ -21,7 +21,7 @@ Maybe just deploy it on IPFS and reference it with DNSLink.
 
 For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
 
-When deploying to prod, since the addition of telemetry (https://github.com/ipfs-shipyard/ipfs-check/pull/30) you will also need to run the following before serving the web assets:
+When deploying to prod, since the addition of telemetry (https://github.com/ipfs/ipfs-check/pull/30) you will also need to run the following before serving the web assets:
 
 ```
 cd web
@@ -78,7 +78,7 @@ type output struct {
 	ConnectionError          string
 	PeerFoundInDHT           map[string]int
 	CidInDHT                 bool
-	ConnectionMaddr          string
+	ConnectionMaddrs         string[]
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 
@@ -101,7 +101,7 @@ type BitswapCheckOutput struct {
 3. Is the peer contactable with the address the user gave us?
 
 - If `ConnectionError` is any empty string, a connection to the peer was successful. Otherwise, it contains the error.
-- If a connection is successful, `ConnectionMaddr` contains the multiaddr that was used to connect.
+- If a connection is successful, `ConnectionMaddrs` contains the multiaddrs that were used to connect. If the peer is behind NAT, it will contain both the circuit relay multiaddr and the direct maddr.
 
 4. Is the address the user gave us present in the DHT?
 
