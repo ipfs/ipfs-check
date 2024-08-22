@@ -114,7 +114,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		obj.Value("CidInDHT").Boolean().IsTrue()
 		obj.Value("ConnectionError").String().IsEmpty()
-		obj.Value("ConnectionMaddr").String().IsEqual(hostAddr.String())
+		obj.Value("ConnectionMaddrs").Array().ContainsAll(h.Addrs()[0])
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
@@ -134,7 +134,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		obj.Value("CidInDHT").Boolean().IsFalse()
 		obj.Value("ConnectionError").String().IsEmpty()
-		obj.Value("ConnectionMaddr").String().IsEqual(hostAddr.String())
+		obj.Value("ConnectionMaddrs").Array().ContainsAll(h.Addrs()[0])
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
@@ -152,7 +152,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		obj.Value("CidInDHT").Boolean().IsTrue()
 		obj.Value("ConnectionError").String().IsEmpty()
-		obj.Value("ConnectionMaddr").String().IsEqual(hostAddr.String())
+		obj.Value("ConnectionMaddrs").Array().ContainsAll(h.Addrs()[0])
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsFalse()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
