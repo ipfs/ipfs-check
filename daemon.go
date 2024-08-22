@@ -56,6 +56,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 		libp2p.ResourceManager(rm),
 		libp2p.EnableHolePunching(),
+		libp2p.UserAgent(userAgent),
 	)
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 			libp2p.DefaultMuxers,
 			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 			libp2p.EnableHolePunching(),
-			libp2p.UserAgent("ipfs-check"),
+			libp2p.UserAgent(userAgent),
 		)
 	}}, nil
 }
