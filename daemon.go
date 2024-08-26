@@ -124,53 +124,65 @@ func (d *daemon) runCidCheck(cidStr string) (*[]providerOutput, error) {
 	}
 
 	ctx := context.Background()
-	out := make([]providerOutput, 0, 3)
+	out := make([]providerOutput, 0, MaxProvidersCount)
 
 	queryCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	provsCh := d.dht.FindProvidersAsync(queryCtx, cid, MaxProvidersCount)
 
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
 	for provider := range provsCh {
-		addrs := make([]string, len(provider.Addrs))
-		for i, addr := range provider.Addrs {
-			addrs[i] = addr.String()
-		}
+		wg.Add(1)
+		go func(provider peer.AddrInfo) {
+			defer wg.Done()
 
-		provOutput := providerOutput{
-			ID:                 provider.ID.String(),
-			Addrs:              addrs,
-			BitswapCheckOutput: BitswapCheckOutput{},
-		}
-
-		testHost, err := d.createTestHost()
-		if err != nil {
-			return nil, fmt.Errorf("server error: %w", err)
-		}
-		defer testHost.Close()
-
-		// Test Is the target connectable
-		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
-
-		// we call NewStream to force NAT hole punching
-		// See https://github.com/libp2p/go-libp2p/issues/2714
-		testHost.Connect(dialCtx, provider)
-		_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
-		dialCancel()
-
-		if connErr != nil {
-			provOutput.BitswapCheckOutput.Error = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
-		} else {
-			// TODO: Modify checkBitswapCID and vole to accept `AddrInfo` so that it can test any of the connections
-			provOutput.BitswapCheckOutput = checkBitswapCID(ctx, testHost, cid, provider.Addrs[0])
-
-			for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
-				provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
+			addrs := make([]string, len(provider.Addrs))
+			for i, addr := range provider.Addrs {
+				addrs[i] = addr.String()
 			}
-		}
 
-		out = append(out, provOutput)
+			provOutput := providerOutput{
+				ID:                 provider.ID.String(),
+				Addrs:              addrs,
+				BitswapCheckOutput: BitswapCheckOutput{},
+			}
+
+			testHost, err := d.createTestHost()
+			if err != nil {
+				log.Printf("Error creating test host: %v", err)
+				return
+			}
+			defer testHost.Close()
+
+			// Test Is the target connectable
+			dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+			defer dialCancel()
+
+			// we call NewStream to force NAT hole punching
+			// See https://github.com/libp2p/go-libp2p/issues/2714
+			testHost.Connect(dialCtx, provider)
+			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
+
+			if connErr != nil {
+				provOutput.BitswapCheckOutput.Error = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
+			} else {
+				// TODO: Modify checkBitswapCID and vole to accept `AddrInfo` so that it can test any of the connections
+				provOutput.BitswapCheckOutput = checkBitswapCID(ctx, testHost, cid, provider.Addrs[0])
+
+				for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
+					provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
+				}
+			}
+
+			mu.Lock()
+			out = append(out, provOutput)
+			mu.Unlock()
+		}(provider)
 	}
 
+	wg.Wait()
 	return &out, nil
 }
 
