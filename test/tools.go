@@ -62,7 +62,7 @@ func GetEnv(key string, fallback string) string {
 Example of outputs:
 ```json
 {
-	"CidInDHT": true,
+	"ProviderRecordFromPeerInDHT": true,
 	"ConnectionError": "no addresses",
 	"DataAvailableOverBitswap": {
 		"Duration": 0,

@@ -75,11 +75,11 @@ The server performs several checks given a CID. The results of the check are exp
 
 ```go
 type output struct {
-	ConnectionError          string
-	PeerFoundInDHT           map[string]int
-	CidInDHT                 bool
-	ConnectionMaddrs         string[]
-	DataAvailableOverBitswap BitswapCheckOutput
+	ConnectionError             string
+	PeerFoundInDHT              map[string]int
+	ProviderRecordFromPeerInDHT bool
+	ConnectionMaddrs            []string
+	DataAvailableOverBitswap    BitswapCheckOutput
 }
 
 type BitswapCheckOutput struct {
@@ -90,9 +90,9 @@ type BitswapCheckOutput struct {
 }
 ```
 
-1. Is the CID (really multihash) advertised in the DHT (or later IPNI)?
+1. Is the CID (really multihash) advertised in the DHT by the Passed PeerID (or later IPNI)?
 
-- `CidInDHT`
+- `ProviderRecordFromPeerInDHT`
 
 2. Are the peer's addresses discoverable (particularly useful if the announcements are DHT based, but also independently useful)
 
