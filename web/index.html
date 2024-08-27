@@ -287,8 +287,8 @@
             const couldConnect = provider.ConnectionError === ''
 
             outText += `\n\t${provider.ID}\n\t\tConnected: ${couldConnect ? "✅" : `❌ ${provider.ConnectionError.replaceAll('\n', '\n\t\t')}` }`
-            outText += couldConnect ? provider.ConnectionMaddrs && `\n\t\tConnection Multiaddrs:${provider.ConnectionMaddrs?.join('\n\t') || ''}` : ''
             outText += couldConnect ? `\n\t\tBitswap Check: ${provider.BitswapCheckOutput.Found ? `✅` : "❌"} ${provider.BitswapCheckOutput.Error || ''}` : ''
+            outText += couldConnect ? provider.ConnectionMaddrs && `\n\t\tConnection Multiaddrs:${provider.ConnectionMaddrs?.join('\n\t') || ''}` : ''
         }
 
         return outText
