@@ -18,7 +18,7 @@ import (
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "ipfs-check"
+	app.Name = name
 	app.Usage = "Server tool for checking the accessibility of your data by IPFS peers"
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -62,6 +62,7 @@ func main() {
 }
 
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
+	log.Printf("Starting %s %s\n", name, version)
 	l, err := net.Listen("tcp", tcpListener)
 	if err != nil {
 		return err
