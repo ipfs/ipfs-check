@@ -138,9 +138,15 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOut
 		wg.Add(1)
 		go func(provider peer.AddrInfo) {
 			defer wg.Done()
-			addrs := make([]string, len(provider.Addrs))
-			for i, addr := range provider.Addrs {
-				addrs[i] = addr.String()
+
+			var addrs []string
+			if len(provider.Addrs) == 0 {
+				addrs = make([]string, len(provider.Addrs))
+				for i, addr := range provider.Addrs {
+					addrs[i] = addr.String()
+				}
+			} else {
+				addrs = nil
 			}
 
 			provOutput := providerOutput{
@@ -148,7 +154,6 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOut
 				Addrs:              addrs,
 				BitswapCheckOutput: BitswapCheckOutput{},
 			}
-			log.Printf("provider output: %v\n", provOutput)
 
 			testHost, err := d.createTestHost()
 			if err != nil {

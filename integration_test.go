@@ -170,7 +170,7 @@ func TestBasicIntegration(t *testing.T) {
 		err = dhtClient.Provide(ctx, testCid, true)
 		require.NoError(t, err)
 
-		res := test.Query(t, "http://localhost:1234", testCid.String())
+		res := test.QueryCid(t, "http://localhost:1234", testCid.String())
 
 		res.Length().IsEqual(1)
 		res.Value(0).Object().Value("ID").String().IsEqual(h.ID().String())
