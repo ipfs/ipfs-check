@@ -90,7 +90,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		var data interface{}
 
 		if maStr == "" {
-			data, err = d.runCidCheck(cidStr)
+			data, err = d.runCidCheck(r.Context(), cidStr)
 		} else {
 			data, err = d.runPeerCheck(maStr, cidStr)
 		}

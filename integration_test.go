@@ -157,4 +157,32 @@ func TestBasicIntegration(t *testing.T) {
 		obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsFalse()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
 	})
+
+	t.Run("Data found on reachable peer with just cid", func(t *testing.T) {
+		testData := []byte(t.Name())
+		mh, err := multihash.Sum(testData, multihash.SHA2_256, -1)
+		require.NoError(t, err)
+		testCid := cid.NewCidV1(cid.Raw, mh)
+		testBlock, err := blocks.NewBlockWithCid(testData, testCid)
+		require.NoError(t, err)
+		err = bstore.Put(ctx, testBlock)
+		require.NoError(t, err)
+		err = dhtClient.Provide(ctx, testCid, true)
+		require.NoError(t, err)
+
+		res := test.Query(t, "http://localhost:1234", testCid.String())
+
+		res.Length().IsEqual(1)
+		res.Value(0).Object().Value("ID").String().IsEqual(h.ID().String())
+		res.Value(0).Object().Value("ConnectionError").String().IsEmpty()
+		testHostAddrs := h.Addrs()
+		for _, addr := range testHostAddrs {
+			res.Value(0).Object().Value("Addrs").Array().ContainsAny(addr.String())
+		}
+
+		res.Value(0).Object().Value("ConnectionMaddrs").Array()
+		res.Value(0).Object().Value("BitswapCheckOutput").Object().Value("Error").String().IsEmpty()
+		res.Value(0).Object().Value("BitswapCheckOutput").Object().Value("Found").Boolean().IsTrue()
+		res.Value(0).Object().Value("BitswapCheckOutput").Object().Value("Responded").Boolean().IsTrue()
+	})
 }

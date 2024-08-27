@@ -28,7 +28,7 @@
             <label class="db mt3 f6 fw6" for="cid">CID</label>
             <input class="db w-100 pa2" type="text" id="cid" name="cid" required>
             <label class="db mt3 f6 fw6" for="ma">Multiaddr</label>
-            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/12D3Koo..." required />
+            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/12D3Koo..." />
             <details class="mt3">
                 <summary class="f6 fw6">Optional fields</summary>
                 <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
@@ -47,6 +47,10 @@
                 </button>
             </div>
             <div id="output" style="white-space:pre;" class="lh-copy fw6"></div>
+            <details class="mt3">
+              <summary class="f6 fw6">Output</summary>
+              <pre><code id="raw-output" style="white-space:pre;" class="lh-copy fw6 language-json"></code></pre>
+            </details>
         </form>
     </section>
     <section class="mw8 center lh-copy dark-gray pv4 ph2 ph4-ns">
@@ -133,6 +137,9 @@
 
               if (res.ok) {
                   const respObj = await res.json()
+                  const rawOutput = document.getElementById('raw-output')
+                  rawOutput.textContent = JSON.stringify(respObj, null, 2)
+
                   const output = formatOutput(formData, respObj)
                   showOutput(output)
               } else {

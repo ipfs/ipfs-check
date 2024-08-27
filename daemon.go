@@ -38,7 +38,7 @@ type daemon struct {
 
 // number of providers at which to stop looking for providers in the DHT
 // When doing a check only with a CID
-var MaxProvidersCount = 3
+var MaxProvidersCount = 10
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
@@ -112,18 +112,18 @@ func (d *daemon) mustStart() {
 
 type providerOutput struct {
 	ID                 string
+	ConnectionError    string
 	Addrs              []string
 	ConnectionMaddrs   []string
 	BitswapCheckOutput BitswapCheckOutput
 }
 
-func (d *daemon) runCidCheck(cidStr string) (*[]providerOutput, error) {
+func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOutput, error) {
 	cid, err := cid.Decode(cidStr)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
 	out := make([]providerOutput, 0, MaxProvidersCount)
 
 	queryCtx, cancel := context.WithCancel(ctx)
@@ -133,64 +133,59 @@ func (d *daemon) runCidCheck(cidStr string) (*[]providerOutput, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	for {
-		select {
-		case provider, ok := <-provsCh:
-			if !ok {
-				// Channel closed, all providers processed
-				return &out, nil
+	for provider := range provsCh {
+		wg.Add(1)
+		go func(provider peer.AddrInfo) {
+			defer wg.Done()
+			addrs := make([]string, len(provider.Addrs))
+			for i, addr := range provider.Addrs {
+				addrs[i] = addr.String()
 			}
-			wg.Add(1)
-			go func(provider peer.AddrInfo) {
-				defer wg.Done()
 
-				addrs := make([]string, len(provider.Addrs))
-				for i, addr := range provider.Addrs {
-					addrs[i] = addr.String()
+			provOutput := providerOutput{
+				ID:                 provider.ID.String(),
+				Addrs:              addrs,
+				BitswapCheckOutput: BitswapCheckOutput{},
+			}
+			log.Printf("provider output: %v\n", provOutput)
+
+			testHost, err := d.createTestHost()
+			if err != nil {
+				log.Printf("Error creating test host: %v\n", err)
+				return
+			}
+			defer testHost.Close()
+
+			// Test Is the target connectable
+			dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+			defer dialCancel()
+
+			// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
+			testHost.Connect(dialCtx, provider)
+			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
+
+			if connErr != nil {
+				provOutput.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
+			} else {
+				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
+				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
+				provOutput.BitswapCheckOutput = checkBitswapCID(ctx, testHost, cid, p2pAddr)
+
+				for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
+					provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
 				}
+			}
 
-				provOutput := providerOutput{
-					ID:                 provider.ID.String(),
-					Addrs:              addrs,
-					BitswapCheckOutput: BitswapCheckOutput{},
-				}
-
-				testHost, err := d.createTestHost()
-				if err != nil {
-					log.Printf("Error creating test host: %v", err)
-					return
-				}
-				defer testHost.Close()
-
-				// Test Is the target connectable
-				dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
-				defer dialCancel()
-
-				// we call NewStream to force NAT hole punching
-				// See https://github.com/libp2p/go-libp2p/issues/2714
-				testHost.Connect(dialCtx, provider)
-				_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
-
-				if connErr != nil {
-					provOutput.BitswapCheckOutput.Error = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
-				} else {
-					// TODO: Modify checkBitswapCID and vole to accept `AddrInfo` so that it can test any of the connections
-					provOutput.BitswapCheckOutput = checkBitswapCID(ctx, testHost, cid, provider.Addrs[0])
-
-					for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
-						provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
-					}
-				}
-
-				mu.Lock()
-				out = append(out, provOutput)
-				mu.Unlock()
-			}(provider)
-		case <-ctx.Done():
-			// Context cancelled
-			return &out, ctx.Err()
-		}
+			mu.Lock()
+			out = append(out, provOutput)
+			mu.Unlock()
+		}(provider)
 	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	return &out, nil
 }
 
 type peerCheckOutput struct {
