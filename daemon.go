@@ -112,11 +112,11 @@ func (d *daemon) mustStart() {
 }
 
 type providerOutput struct {
-	ID                 string
-	ConnectionError    string
-	Addrs              []string
-	ConnectionMaddrs   []string
-	BitswapCheckOutput BitswapCheckOutput
+	ID                       string
+	ConnectionError          string
+	Addrs                    []string
+	ConnectionMaddrs         []string
+	DataAvailableOverBitswap BitswapCheckOutput
 }
 
 // runCidCheck looks up the DHT for providers of a given CID and then checks their connectivity and Bitswap availability
@@ -150,9 +150,9 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOut
 			}
 
 			provOutput := providerOutput{
-				ID:                 provider.ID.String(),
-				Addrs:              addrs,
-				BitswapCheckOutput: BitswapCheckOutput{},
+				ID:                       provider.ID.String(),
+				Addrs:                    addrs,
+				DataAvailableOverBitswap: BitswapCheckOutput{},
 			}
 
 			testHost, err := d.createTestHost()
@@ -175,7 +175,7 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOut
 			} else {
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
-				provOutput.BitswapCheckOutput = checkBitswapCID(ctx, testHost, cid, p2pAddr)
+				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cid, p2pAddr)
 
 				for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
 					provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())

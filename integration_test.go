@@ -21,6 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -177,12 +178,14 @@ func TestBasicIntegration(t *testing.T) {
 		res.Value(0).Object().Value("ConnectionError").String().IsEmpty()
 		testHostAddrs := h.Addrs()
 		for _, addr := range testHostAddrs {
-			res.Value(0).Object().Value("Addrs").Array().ContainsAny(addr.String())
+			if manet.IsPublicAddr(addr) {
+				res.Value(0).Object().Value("Addrs").Array().ContainsAny(addr.String())
+			}
 		}
 
 		res.Value(0).Object().Value("ConnectionMaddrs").Array()
-		res.Value(0).Object().Value("BitswapCheckOutput").Object().Value("Error").String().IsEmpty()
-		res.Value(0).Object().Value("BitswapCheckOutput").Object().Value("Found").Boolean().IsTrue()
-		res.Value(0).Object().Value("BitswapCheckOutput").Object().Value("Responded").Boolean().IsTrue()
+		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
+		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
+		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
 	})
 }

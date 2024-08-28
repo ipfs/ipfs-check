@@ -46,10 +46,10 @@
                   Run Test
                 </button>
             </div>
-            <div id="output" style="white-space:pre; overflow-x: scroll;" class="lh-copy fw6"></div>
+            <div id="output" style="white-space:pre; overflow-x: scroll;" class="lh-copy fw5"></div>
             <details class="mt3">
               <summary class="f6 fw6">Raw Output</summary>
-              <pre style="white-space:pre;" class="lh-copy fw6 language-json"><code id="raw-output"></code></pre>
+              <pre style="white-space:pre;" class="lh-copy fw5 language-json"><code id="raw-output"></code></pre>
             </details>
         </form>
     </section>
@@ -264,12 +264,12 @@
     function formatJustCidOutput (resp) {
         let outText = ""
         if (resp.length === 0) {
-            outText += "❌ No providers found for the given CID\n"
+            outText += "❌ No providers found for the given CID"
             return outText
         }
 
         const successfulProviders = resp.reduce((acc, provider) => {
-            if(provider.ConnectionError === '' && provider.BitswapCheckOutput.Found === true) {
+            if(provider.ConnectionError === '' && provider.DataAvailableOverBitswap?.Found === true) {
                 acc++
             }
             return acc
@@ -295,12 +295,12 @@
             }
         })
 
-        outText += `${successfulProviders > 0 ? '✅' : '❌'} Found ${successfulProviders} providers (out of ${resp.length} providers in the DHT) that could be connected to and had the CID available over Bitswap:\n`
+        outText += `${successfulProviders > 0 ? '✅' : '❌'} Found ${successfulProviders} providers (out of ${resp.length} providers in the DHT) that could be connected to and had the CID available over Bitswap:`
         for (const provider of resp) {
             const couldConnect = provider.ConnectionError === ''
 
             outText += `\n\t${provider.ID}\n\t\tConnected: ${couldConnect ? "✅" : `❌ ${provider.ConnectionError.replaceAll('\n', '\n\t\t')}` }`
-            outText += couldConnect ? `\n\t\tBitswap Check: ${provider.BitswapCheckOutput.Found ? `✅` : "❌"} ${provider.BitswapCheckOutput.Error || ''}` : ''
+            outText += couldConnect ? `\n\t\tBitswap Check: ${provider.DataAvailableOverBitswap.Found ? `✅` : "❌"} ${provider.DataAvailableOverBitswap.Error || ''}` : ''
             outText += couldConnect ? provider.ConnectionMaddrs && `\n\t\tSuccessful Connection Multiaddr${provider.ConnectionMaddrs.length > 1 ? 's' : ''}:${provider.ConnectionMaddrs?.join('\n\t\t\t') || ''}` : ''
             outText += provider.Addrs.length > 0 ? `\n\t\tPeer Multiaddrs:\n\t\t\t${provider.Addrs.join('\n\t\t\t')}` : ''
         }
