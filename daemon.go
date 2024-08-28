@@ -18,10 +18,10 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 )
 
 type kademlia interface {
@@ -119,6 +119,7 @@ type providerOutput struct {
 	BitswapCheckOutput BitswapCheckOutput
 }
 
+// runCidCheck looks up the DHT for providers of a given CID and then checks their connectivity and Bitswap availability
 func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOutput, error) {
 	cid, err := cid.Decode(cidStr)
 	if err != nil {
@@ -139,14 +140,13 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOut
 		go func(provider peer.AddrInfo) {
 			defer wg.Done()
 
-			var addrs []string
-			if len(provider.Addrs) == 0 {
-				addrs = make([]string, len(provider.Addrs))
-				for i, addr := range provider.Addrs {
-					addrs[i] = addr.String()
+			addrs := []string{}
+			if len(provider.Addrs) > 0 {
+				for _, addr := range provider.Addrs {
+					if manet.IsPublicAddr(addr) { // only return public addrs
+						addrs = append(addrs, addr.String())
+					}
 				}
-			} else {
-				addrs = nil
 			}
 
 			provOutput := providerOutput{
@@ -166,12 +166,12 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOut
 			dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
 			defer dialCancel()
 
-			// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 			testHost.Connect(dialCtx, provider)
+			// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 
 			if connErr != nil {
-				provOutput.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
+				provOutput.ConnectionError = connErr.Error()
 			} else {
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
@@ -202,7 +202,8 @@ type peerCheckOutput struct {
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 
-func (d *daemon) runPeerCheck(maStr, cidStr string) (*peerCheckOutput, error) {
+// runPeerCheck checks the connectivity and Bitswap availability of a CID from a given peer (either with just peer ID or specific multiaddr)
+func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerCheckOutput, error) {
 	ma, err := multiaddr.NewMultiaddr(maStr)
 	if err != nil {
 		return nil, err
@@ -221,7 +222,6 @@ func (d *daemon) runPeerCheck(maStr, cidStr string) (*peerCheckOutput, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
 	out := &peerCheckOutput{}
 
 	connectionFailed := false
@@ -258,13 +258,12 @@ func (d *daemon) runPeerCheck(maStr, cidStr string) (*peerCheckOutput, error) {
 		// Test Is the target connectable
 		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
 
-		// we call NewStream instead of Connect to force NAT hole punching
-		// See https://github.com/libp2p/go-libp2p/issues/2714
-		testHost.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.RecentlyConnectedAddrTTL)
+		testHost.Connect(dialCtx, *ai)
+		// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
-			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
+			out.ConnectionError = connErr.Error()
 			connectionFailed = true
 		}
 	}
