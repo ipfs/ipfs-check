@@ -21,14 +21,7 @@ Maybe just deploy it on IPFS and reference it with DNSLink.
 
 For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
 
-When deploying to prod, since the addition of telemetry (https://github.com/ipfs/ipfs-check/pull/30) you will also need to run the following before serving the web assets:
-
-```
-cd web
-npm install && npm run build
-```
-
-At a minimum, the following files should be available from your web-server on prod: `web/index.html`, `web/tachyons.min.css`, `web/dist/telemetry.js`.
+At a minimum, the following files should be available from your web-server on prod: `web/index.html`, `web/tachyons.min.css`.
 
 ## Docker
 
