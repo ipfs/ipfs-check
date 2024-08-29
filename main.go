@@ -68,14 +68,17 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		return err
 	}
 
-	log.Printf("listening on %v\n", l.Addr())
 	log.Printf("Libp2p host peer id %s\n", d.h.ID())
 	log.Printf("Libp2p host listening on %v\n", d.h.Addrs())
-	log.Printf("listening on %v\n", l.Addr())
 
 	d.mustStart()
 
-	log.Printf("ready to start serving")
+	log.Printf("Backend ready and listening on %v\n", l.Addr())
+
+	webAddr := getWebAddress(l)
+	log.Printf("Test fronted at http://%s/web/?backendURL=http://%s\n", webAddr, webAddr)
+
+	log.Printf("Ready to start serving.")
 
 	checkHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
@@ -139,6 +142,14 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 	http.Handle("/metrics/libp2p", BasicAuth(promhttp.Handler(), metricsUsername, metricPassword))
 	http.Handle("/metrics/http", BasicAuth(promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), metricsUsername, metricPassword))
 
+	// Serve frontend on /web
+	fileServer := http.FileServer(http.FS(webFS))
+	http.Handle("/web/", fileServer)
+	// Set up the root route to redirect to /web
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/web", http.StatusFound)
+	})
+
 	done := make(chan error, 1)
 	go func() {
 		defer close(done)
@@ -171,4 +182,23 @@ func BasicAuth(handler http.Handler, username, password string) http.Handler {
 
 		handler.ServeHTTP(w, r)
 	})
+}
+
+// getWebAddress returns listener with [::] and 0.0.0.0 replaced by localhost
+func getWebAddress(l net.Listener) string {
+	addr := l.Addr().String()
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	switch host {
+	case "":
+		fallthrough
+	case "0.0.0.0":
+		fallthrough
+	case "::":
+		return net.JoinHostPort("localhost", port)
+	default:
+		return addr
+	}
 }
