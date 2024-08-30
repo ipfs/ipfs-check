@@ -39,7 +39,7 @@ func TestEmptyDirOnBoostrapPeer(t *testing.T) {
 	}
 	obj := Q(t, EMPTY_DIR_CID, BOOTSTRAP_PEER_ADDR)
 
-	obj.Value("CidInDHT").Boolean().IsTrue()
+	obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsTrue()
 	obj.Value("ConnectionError").String().IsEmpty()
 	obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 	obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
@@ -51,7 +51,7 @@ func TestWikipediaOnSomeProviderPeer(t *testing.T) {
 		t.Skip("Skipping e2e tests")
 	}
 	obj := Q(t, WIKIPEDIA_CID, WIKIPEDIA_PEER_ADDR)
-	obj.Value("CidInDHT").Boolean().IsTrue()
+	obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsTrue()
 	// It seems that most peers do not provide over bitswap:
 	// obj.Value("ConnectionError").String().IsEmpty()
 	// obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
@@ -72,7 +72,7 @@ func TestRandomFileOnBootstrapPeer(t *testing.T) {
 			time.Sleep(60 * time.Second)
 			obj := Q(t, randomFileCid, BOOTSTRAP_PEER_ADDR)
 
-			obj.Value("CidInDHT").Boolean().IsTrue()
+			obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsTrue()
 			obj.Value("ConnectionError").String().IsEmpty()
 			obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 			obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
@@ -97,7 +97,7 @@ func TestRandomFileOnLocalPeer(t *testing.T) {
 			time.Sleep(25 * time.Second)
 			obj := Q(t, randomFileCid, localAddr)
 
-			obj.Value("CidInDHT").Boolean().IsTrue()
+			obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsTrue()
 			obj.Value("ConnectionError").String().IsEmpty()
 			obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 			obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
@@ -115,7 +115,7 @@ func TestRandomFileNeverUploadedOnBootstrapPeer(t *testing.T) {
 
 	obj := Q(t, randomFileCid, BOOTSTRAP_PEER_ADDR)
 
-	obj.Value("CidInDHT").Boolean().IsFalse()
+	obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsFalse()
 	obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsFalse()
 	obj.Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
 }
