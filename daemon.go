@@ -20,7 +20,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
-	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/prometheus/client_golang/prometheus"
@@ -209,11 +208,11 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput
 }
 
 type peerCheckOutput struct {
-	ConnectionError          string
-	PeerFoundInDHT           map[string]int
-	CidInDHT                 bool
-	ConnectionMaddrs         []string
-	DataAvailableOverBitswap BitswapCheckOutput
+	ConnectionError             string
+	PeerFoundInDHT              map[string]int
+	ProviderRecordFromPeerInDHT bool
+	ConnectionMaddrs            []string
+	DataAvailableOverBitswap    BitswapCheckOutput
 }
 
 // runPeerCheck checks the connectivity and Bitswap availability of a CID from a given peer (either with just peer ID or specific multiaddr)
@@ -240,7 +239,7 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 
 	connectionFailed := false
 
-	out.CidInDHT = providerRecordForPeerInDHT(ctx, d.dht, c, ai.ID)
+	out.ProviderRecordFromPeerInDHT = ProviderRecordFromPeerInDHT(ctx, d.dht, c, ai.ID)
 
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 	out.PeerFoundInDHT = addrMap
@@ -277,36 +276,17 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
-			log.Printf("Error connecting to peer %s: %v", ai.ID, connErr)
-			ids, ok := testHost.(interface{ IDService() identify.IDService })
-			if ok {
-				log.Printf("Own observed addrs: %v", ids.IDService().OwnObservedAddrs())
-			}
-
-			// Log all open connections
-			for _, conn := range testHost.Network().Conns() {
-				log.Printf("Open connection: Peer ID: %s, Remote Addr: %s, Local Addr: %s",
-					conn.RemotePeer(),
-					conn.RemoteMultiaddr(),
-					conn.LocalMultiaddr(),
-				)
-			}
 			out.ConnectionError = connErr.Error()
-			connectionFailed = true
+			return out, nil
 		}
 	}
 
-	if connectionFailed {
-		out.DataAvailableOverBitswap.Error = "could not connect to peer"
-	} else {
-		// If so is the data available over Bitswap?
-		out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
+	// If so is the data available over Bitswap?
+	out.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, c, ma)
 
-		// Get the direct connection in case it was hole punched and we have both a limited connection
-		// directMaddr := getDirectMaddr()
-		for _, c := range testHost.Network().ConnsToPeer(ai.ID) {
-			out.ConnectionMaddrs = append(out.ConnectionMaddrs, c.RemoteMultiaddr().String())
-		}
+	// Get all connection maddrs to the peer (in case we hole punched, there will usually be two: limited relay and direct)
+	for _, c := range testHost.Network().ConnsToPeer(ai.ID) {
+		out.ConnectionMaddrs = append(out.ConnectionMaddrs, c.RemoteMultiaddr().String())
 	}
 
 	return out, nil
@@ -383,7 +363,7 @@ func peerAddrsInDHT(ctx context.Context, d kademlia, messenger *dhtpb.ProtocolMe
 	return addrMap, nil
 }
 
-func providerRecordForPeerInDHT(ctx context.Context, d kademlia, c cid.Cid, p peer.ID) bool {
+func ProviderRecordFromPeerInDHT(ctx context.Context, d kademlia, c cid.Cid, p peer.ID) bool {
 	queryCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	provsCh := d.FindProvidersAsync(queryCtx, c, 0)

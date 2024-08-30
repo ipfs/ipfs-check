@@ -103,11 +103,11 @@ The results of the check are expressed by the `peerCheckOutput` type:
 
 ```go
 type peerCheckOutput struct {
-	ConnectionError          string
-	PeerFoundInDHT           map[string]int
-	CidInDHT                 bool
-	ConnectionMaddrs         string[]
-	DataAvailableOverBitswap BitswapCheckOutput
+	ConnectionError             string
+	PeerFoundInDHT              map[string]int
+	ProviderRecordFromPeerInDHT bool
+	ConnectionMaddrs            []string
+	DataAvailableOverBitswap    BitswapCheckOutput
 }
 
 type BitswapCheckOutput struct {
@@ -118,9 +118,9 @@ type BitswapCheckOutput struct {
 }
 ```
 
-1. Is the CID (really multihash) advertised in the DHT (or later IPNI)?
+1. Is the CID (really multihash) advertised in the DHT by the Passed PeerID (or later IPNI)?
 
-- `CidInDHT`
+- `ProviderRecordFromPeerInDHT`
 
 2. Are the peer's addresses discoverable (particularly useful if the announcements are DHT based, but also independently useful)
 
@@ -143,8 +143,7 @@ type BitswapCheckOutput struct {
 
 The ipfs-check server is instrumented and exposes two Prometheus metrics endpoints:
 
-- `/metrics/libp2p` exposes [go-libp2p metrics](https://blog.libp2p.io/2023-08-15-metrics-in-go-libp2p/).
-- `/metrics/http` exposes http metrics for the check endpoint.
+- `/metrics` exposes [go-libp2p metrics](https://blog.libp2p.io/2023-08-15-metrics-in-go-libp2p/) and http metrics for the check endpoint.
 
 ### Securing the metrics endpoints
 

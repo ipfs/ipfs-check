@@ -115,7 +115,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		obj := test.Query(t, "http://localhost:1234", testCid.String(), hostAddr.String())
 
-		obj.Value("CidInDHT").Boolean().IsTrue()
+		obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsTrue()
 		obj.Value("ConnectionError").String().IsEmpty()
 		obj.Value("ConnectionMaddrs").Array().ContainsAll(h.Addrs()[0])
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
@@ -135,7 +135,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		obj := test.Query(t, "http://localhost:1234", testCid.String(), hostAddr.String())
 
-		obj.Value("CidInDHT").Boolean().IsFalse()
+		obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsFalse()
 		obj.Value("ConnectionError").String().IsEmpty()
 		obj.Value("ConnectionMaddrs").Array().ContainsAll(h.Addrs()[0])
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
@@ -153,7 +153,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		obj := test.Query(t, "http://localhost:1234", testCid.String(), hostAddr.String())
 
-		obj.Value("CidInDHT").Boolean().IsTrue()
+		obj.Value("ProviderRecordFromPeerInDHT").Boolean().IsTrue()
 		obj.Value("ConnectionError").String().IsEmpty()
 		obj.Value("ConnectionMaddrs").Array().ContainsAll(h.Addrs()[0])
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
