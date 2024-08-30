@@ -171,29 +171,26 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput
 				DataAvailableOverBitswap: BitswapCheckOutput{},
 			}
 
-			testHost, err := d.createTestHost()
-			if err != nil {
-				log.Printf("Error creating test host: %v\n", err)
-				return
-			}
-			defer testHost.Close()
-
 			// Test Is the target connectable
 			dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
 			defer dialCancel()
 
-			testHost.Connect(dialCtx, provider)
-			// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
-			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
+			connErr := d.h.Connect(dialCtx, provider)
+			if connErr != nil {
+				provOutput.ConnectionError = connErr.Error()
+			} else {
+				// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
+				_, connErr = d.h.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
+			}
 
 			if connErr != nil {
 				provOutput.ConnectionError = connErr.Error()
 			} else {
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
-				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cid, p2pAddr)
+				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, d.h, cid, p2pAddr)
 
-				for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
+				for _, c := range d.h.Network().ConnsToPeer(provider.ID) {
 					provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
 				}
 			}
@@ -247,12 +244,16 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 	out.PeerFoundInDHT = addrMap
 
+	// Default to reusing the daemon libp2p host (which may already be connected to the peer through dht traversal)
+	testHost := d.h
+
 	// If peerID given,but no addresses check the DHT
 	if onlyPeerID {
 		if peerAddrDHTErr != nil {
 			// PeerID is not resolvable via the DHT
 			connectionFailed = true
 			out.ConnectionError = peerAddrDHTErr.Error()
+			return out, nil
 		}
 		for a := range addrMap {
 			ma, err := multiaddr.NewMultiaddr(a)
@@ -262,13 +263,14 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 			}
 			ai.Addrs = append(ai.Addrs, ma)
 		}
+	} else {
+		// create an ephemeral test host so that we check the passed multiaddr. See https://github.com/ipfs/ipfs-check/issues/53
+		testHost, err = d.createTestHost()
+		if err != nil {
+			return nil, fmt.Errorf("server error: %w", err)
+		}
+		defer testHost.Close()
 	}
-
-	testHost, err := d.createTestHost()
-	if err != nil {
-		return nil, fmt.Errorf("server error: %w", err)
-	}
-	defer testHost.Close()
 
 	if !connectionFailed {
 		// Test Is the target connectable
