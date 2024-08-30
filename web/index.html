@@ -295,7 +295,7 @@
             }
         })
 
-        outText += `${successfulProviders > 0 ? '✅' : '❌'} Found ${successfulProviders} providers (out of ${resp.length} providers in the DHT) that could be connected to and had the CID available over Bitswap:`
+        outText += `${successfulProviders > 0 ? '✅' : '❌'} Found ${successfulProviders} working providers (out of ${resp.length} provider records sampled from Amino DHT) that could be connected to and had the CID available over Bitswap:`
         for (const provider of resp) {
             const couldConnect = provider.ConnectionError === ''
 
