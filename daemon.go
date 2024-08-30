@@ -21,9 +21,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
-	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type kademlia interface {
@@ -36,6 +36,7 @@ type daemon struct {
 	dht            kademlia
 	dhtMessenger   *dhtpb.ProtocolMessenger
 	createTestHost func() (host.Host, error)
+	promRegistry   *prometheus.Registry
 }
 
 // number of providers at which to stop looking for providers in the DHT
@@ -53,6 +54,9 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
+	// Create a custom registry for all prometheus metrics
+	promRegistry := prometheus.NewRegistry()
+
 	h, err := libp2p.New(
 		libp2p.DefaultMuxers,
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
@@ -60,6 +64,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 		libp2p.ResourceManager(rm),
 		libp2p.EnableHolePunching(),
+		libp2p.PrometheusRegisterer(promRegistry),
 		libp2p.UserAgent(userAgent),
 	)
 	if err != nil {
@@ -92,43 +97,19 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	return &daemon{h: h, dht: d, dhtMessenger: pm,
+	return &daemon{
+		h:            h,
+		dht:          d,
+		dhtMessenger: pm,
+		promRegistry: promRegistry,
 		createTestHost: func() (host.Host, error) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			defer cancel()
-
-			testHost, err := libp2p.New(
+			return libp2p.New(
 				libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 				libp2p.DefaultMuxers,
 				libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
 				libp2p.EnableHolePunching(),
-				// libp2p.ResourceManager(rm),
-				// libp2p.ConnectionManager(c),
-				libp2p.Transport(libp2pquic.NewTransport),
-				libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic-v1"),
 				libp2p.UserAgent(userAgent),
 			)
-			if err != nil {
-				return nil, err
-			}
-
-			testHostDht, err := dht.New(ctx, testHost, dht.Mode(dht.ModeClient), dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))
-			if err != nil {
-				return nil, err
-			}
-
-			err = testHostDht.Bootstrap(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			log.Printf("Created host %s with listen addrs %v", testHost.ID(), testHost.Network().ListenAddresses())
-			ids, ok := testHost.(interface{ IDService() identify.IDService })
-			if ok {
-				log.Printf("Own observed addrs: %v", ids.IDService().OwnObservedAddrs())
-			}
-
-			return testHost, nil
 		}}, nil
 }
 
@@ -339,7 +320,7 @@ type BitswapCheckOutput struct {
 }
 
 func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
-	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the temporary peer: %s", c, ma, host.ID())
+	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the peer: %s", c, ma, host.ID())
 	out := BitswapCheckOutput{}
 	start := time.Now()
 
