@@ -20,6 +20,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
+	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
@@ -90,15 +92,44 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	return &daemon{h: h, dht: d, dhtMessenger: pm, createTestHost: func() (host.Host, error) {
-		return libp2p.New(
-			libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
-			libp2p.DefaultMuxers,
-			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
-			libp2p.EnableHolePunching(),
-			libp2p.UserAgent(userAgent),
-		)
-	}}, nil
+	return &daemon{h: h, dht: d, dhtMessenger: pm,
+		createTestHost: func() (host.Host, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+
+			testHost, err := libp2p.New(
+				libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
+				libp2p.DefaultMuxers,
+				libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
+				libp2p.EnableHolePunching(),
+				// libp2p.ResourceManager(rm),
+				// libp2p.ConnectionManager(c),
+				libp2p.Transport(libp2pquic.NewTransport),
+				libp2p.ListenAddrStrings("/ip4/0.0.0.0/udp/0/quic-v1"),
+				libp2p.UserAgent(userAgent),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			testHostDht, err := dht.New(ctx, testHost, dht.Mode(dht.ModeClient), dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))
+			if err != nil {
+				return nil, err
+			}
+
+			err = testHostDht.Bootstrap(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			log.Printf("Created host %s with listen addrs %v", testHost.ID(), testHost.Network().ListenAddresses())
+			ids, ok := testHost.(interface{ IDService() identify.IDService })
+			if ok {
+				log.Printf("Own observed addrs: %v", ids.IDService().OwnObservedAddrs())
+			}
+
+			return testHost, nil
+		}}, nil
 }
 
 func (d *daemon) mustStart() {
@@ -111,6 +142,8 @@ func (d *daemon) mustStart() {
 
 }
 
+type cidCheckOutput *[]providerOutput
+
 type providerOutput struct {
 	ID                       string
 	ConnectionError          string
@@ -120,7 +153,7 @@ type providerOutput struct {
 }
 
 // runCidCheck looks up the DHT for providers of a given CID and then checks their connectivity and Bitswap availability
-func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (*[]providerOutput, error) {
+func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput, error) {
 	cid, err := cid.Decode(cidStr)
 	if err != nil {
 		return nil, err
@@ -256,13 +289,27 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 
 	if !connectionFailed {
 		// Test Is the target connectable
-		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*120)
 
 		testHost.Connect(dialCtx, *ai)
 		// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
+			log.Printf("Error connecting to peer %s: %v", ai.ID, connErr)
+			ids, ok := testHost.(interface{ IDService() identify.IDService })
+			if ok {
+				log.Printf("Own observed addrs: %v", ids.IDService().OwnObservedAddrs())
+			}
+
+			// Log all open connections
+			for _, conn := range testHost.Network().Conns() {
+				log.Printf("Open connection: Peer ID: %s, Remote Addr: %s, Local Addr: %s",
+					conn.RemotePeer(),
+					conn.RemoteMultiaddr(),
+					conn.LocalMultiaddr(),
+				)
+			}
 			out.ConnectionError = connErr.Error()
 			connectionFailed = true
 		}
