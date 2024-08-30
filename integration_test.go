@@ -23,6 +23,7 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multihash"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,6 +63,7 @@ func TestBasicIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		d := &daemon{
+			promRegistry: prometheus.NewRegistry(),
 			h:            queryHost,
 			dht:          queryDHT,
 			dhtMessenger: pm,
