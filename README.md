@@ -21,14 +21,7 @@ Maybe just deploy it on IPFS and reference it with DNSLink.
 
 For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
 
-When deploying to prod, since the addition of telemetry (https://github.com/ipfs/ipfs-check/pull/30) you will also need to run the following before serving the web assets:
-
-```
-cd web
-npm install && npm run build
-```
-
-At a minimum, the following files should be available from your web-server on prod: `web/index.html`, `web/tachyons.min.css`, `web/dist/telemetry.js`.
+At a minimum, the following files should be available from your web-server on prod: `web/index.html`, `web/tachyons.min.css`.
 
 ## Docker
 
@@ -43,15 +36,27 @@ docker run -d ipfs-check
 
 ### Terminal 1
 
+```console
+$ go build
+$ ./ipfs-check
+Starting ipfs-check
+...
+2024/08/29 20:42:34 Please wait, initializing accelerated-dht client.. (mapping Amino DHT may takes 5 or more minutes)
+2024/08/29 20:42:34 Accelerated DHT client ready
+2024/08/29 20:46:59 Backend ready and listening on [::]:3333
+2024/08/29 20:46:59 Test fronted at http://localhost:3333/web/?backendURL=http://localhost:3333
+2024/08/29 20:46:59 Ready to start serving.
 ```
-go build
-./ipfs-check # Note listening port.. output should say something like "listening on [::]:3333"
-```
+
+As a convenience, a test frontend is provided at <http://localhost:3333/web/?backendURL=http://localhost:3333>.
 
 ### Terminal 2
 
+If you don't want to use test HTTP server from ipfs-check itself, feel free to
+use any other tool to serve the contents of the /web folder (you can open the
+html file directly in your browser).
+
 ```
-# feel free to use any other tool to serve the contents of the /web folder (you can open the html file directly in your browser)
 npx -y serve -l 3000 web
 # Then open http://localhost:3000?backendURL=http://localhost:3333
 ```

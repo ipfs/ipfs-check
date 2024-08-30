@@ -48,7 +48,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	c, err := connmgr.NewConnManager(600, 900, connmgr.WithGracePeriod(time.Second*30))
+	c, err := connmgr.NewConnManager(100, 900, connmgr.WithGracePeriod(time.Second*30))
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +115,14 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 func (d *daemon) mustStart() {
 	// Wait for the DHT to be ready
 	if frt, ok := d.dht.(*fullrt.FullRT); ok {
-		for !frt.Ready() {
-			time.Sleep(time.Second * 10)
+		if !frt.Ready() {
+			log.Printf("Please wait, initializing accelerated-dht client.. (mapping Amino DHT takes 5 mins or more)")
 		}
+		for !frt.Ready() {
+			time.Sleep(time.Second * 1)
+		}
+		log.Printf("Accelerated DHT client is ready")
 	}
-
 }
 
 type cidCheckOutput *[]providerOutput
