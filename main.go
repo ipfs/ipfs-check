@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"embed"
 	"encoding/json"
 	"errors"
 	"log"
@@ -16,6 +17,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 )
+
+//go:embed web
+var webFS embed.FS
 
 func main() {
 	app := cli.NewApp()

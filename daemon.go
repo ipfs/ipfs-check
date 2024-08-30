@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"log"
 	"sync"
@@ -25,9 +24,6 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-//go:embed web
-var webFS embed.FS
 
 type kademlia interface {
 	routing.Routing
