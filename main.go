@@ -83,7 +83,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 
 	webAddr := getWebAddress(l)
 	log.Printf("Test fronted at http://%s/web/?backendURL=http://%s\n", webAddr, webAddr)
-
+	log.Printf("Metrics endpoint at http://%s/metrics\n", webAddr)
 	log.Printf("Ready to start serving.")
 
 	checkHandler := func(w http.ResponseWriter, r *http.Request) {
