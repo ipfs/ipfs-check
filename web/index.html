@@ -17,20 +17,20 @@
 <main>
     <section class="mw7 center lh-copy dark-gray ph1 pb4">
         <p class="ma0 pv0 ph2 f4 fw6">
-            Check the retrievability of CID from an IPFS peer
+            Check the retrievability of CID
         </p>
         <p class="ma0 pv0 mt2 ph2 f5 fw4">
-            Paste in a Content ID and the multiaddr of a host to check if it is expected to be retrievable
+            Paste in a Content ID and the multiaddr (optional) of a host to check if it is expected to be retrievable
         </p>
     </section>
     <section class="bg-near-white">
         <form id="queryForm" class="mw8 center lh-copy dark-gray br2 pv4 ph2 ph4-ns">
             <label class="db mt3 f6 fw6" for="cid">CID</label>
             <input class="db w-100 pa2" type="text" id="cid" name="cid" required>
-            <label class="db mt3 f6 fw6" for="ma">Multiaddr</label>
-            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/12D3Koo..." required />
+            <label class="db mt3 f6 fw6" for="ma">Multiaddr (optional)</label>
+            <input class="db w-100 pa2" type="text" id="multiaddr" name="multiaddr" placeholder="/p2p/12D3Koo..." />
             <details class="mt3">
-                <summary class="f6 fw6">Optional fields</summary>
+                <summary class="f6 fw6">Backend Config</summary>
                 <label class="db mt3 f6 fw6" for="backendURL">Backend URL</label>
                 <input class="db w-100 pa2" type="url" id="backendURL" name="backendURL" value="https://ipfs-check-backend.ipfs.io" placeholder="https://ipfs-check-backend.ipfs.io" list="defaultBackendURLs" required>
                 <datalist id="defaultBackendURLs">
@@ -46,7 +46,11 @@
                   Run Test
                 </button>
             </div>
-            <div id="output" style="white-space:pre; overflow-x: scroll;" class="lh-copy fw6"></div>
+            <div id="output" style="white-space:pre; overflow-x: scroll;" class="lh-copy fw5"></div>
+            <details class="mt3">
+              <summary class="f6 fw6">Raw Output</summary>
+              <pre style="white-space:pre;" class="lh-copy fw5 language-json"><code id="raw-output"></code></pre>
+            </details>
         </form>
     </section>
     <section class="mw8 center lh-copy dark-gray pv4 ph2 ph4-ns">
@@ -122,6 +126,7 @@
             e.preventDefault() // dont do a browser form post
 
             showOutput('') // clear out previous results
+            showRawOutput('') // clear out previous results
 
             const formData = new FormData(document.getElementById('queryForm'))
             const backendURL = getBackendUrl(formData)
@@ -133,13 +138,21 @@
 
               if (res.ok) {
                   const respObj = await res.json()
-                  const output = formatOutput(formData, respObj)
-                  showOutput(output)
+                  showRawOutput(JSON.stringify(respObj, null, 2))
+
+                  if(formData.get('multiaddr') == '') {
+                    const output = formatJustCidOutput(respObj)
+                    showOutput(output)
+                  } else {
+                    const output = formatMaddrOutput(formData.get('multiaddr'), respObj)
+                    showOutput(output)
+                  }
               } else {
                   const resText = await res.text()
                   showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
               }
             } catch (e) {
+              console.log(e)
               showOutput(`⚠️ backend error: ${e}`)
             } finally {
               toggleSubmitButton()
@@ -177,6 +190,11 @@
         outObj.textContent = output
     }
 
+    function showRawOutput (output) {
+        const outObj = document.getElementById('raw-output')
+        outObj.textContent = output
+    }
+
     function toggleSubmitButton() {
         const button = document.getElementById('submit')
         button.toggleAttribute('disabled')
@@ -184,11 +202,10 @@
         spinner.classList.toggle('dn')
     }
 
-    function formatOutput (formData, respObj) {
-        const ma = formData.get('multiaddr')
-        const peerIDStartIndex = ma.lastIndexOf("/p2p/")
-        const peerID = ma.slice(peerIDStartIndex + 5);
-        const addrPart = ma.slice(0, peerIDStartIndex);
+    function formatMaddrOutput (multiaddr, respObj) {
+        const peerIDStartIndex = multiaddr.lastIndexOf("/p2p/")
+        const peerID = multiaddr.slice(peerIDStartIndex + 5);
+        const addrPart = multiaddr.slice(0, peerIDStartIndex);
         let outText = ""
 
         if (respObj.ConnectionError !== "") {
@@ -198,7 +215,7 @@
             outText += `✅ Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }: \n\t${madrs.join('\n\t')}\n`
         }
 
-        if (ma.indexOf("/p2p/") === 0 && ma.lastIndexOf("/") === 4) {
+        if (multiaddr.indexOf("/p2p/") === 0 && multiaddr.lastIndexOf("/") === 4) {
             // only peer id passed with /p2p/PeerID
             if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
                 outText += "❌ Could not find any multiaddrs in the dht\n"
@@ -241,6 +258,53 @@
         } else {
             outText += "❌ The peer responded that it does not have the CID\n"
         }
+        return outText
+    }
+
+    function formatJustCidOutput (resp) {
+        let outText = ""
+        if (resp.length === 0) {
+            outText += "❌ No providers found for the given CID"
+            return outText
+        }
+
+        const successfulProviders = resp.reduce((acc, provider) => {
+            if(provider.ConnectionError === '' && provider.DataAvailableOverBitswap?.Found === true) {
+                acc++
+            }
+            return acc
+        }, 0)
+
+        const failedProviders = resp.length - successfulProviders
+
+        // Show providers without connection errors first
+        resp.sort((a, b) => {
+            if (a.ConnectionError === '' && b.ConnectionError !== '') {
+                return -1;
+            } else if (a.ConnectionError !== '' && b.ConnectionError === '') {
+                return 1;
+            }
+
+            // If both have a connection error, list the one with addresses first
+            if(a.Addrs.length > 0 && b.Addrs.length === 0) {
+                return -1
+            } else if(a.Addrs.length === 0 && b.Addrs.length > 0) {
+                return 1
+            } else {
+                return 0
+            }
+        })
+
+        outText += `${successfulProviders > 0 ? '✅' : '❌'} Found ${successfulProviders} working providers (out of ${resp.length} provider records sampled from Amino DHT) that could be connected to and had the CID available over Bitswap:`
+        for (const provider of resp) {
+            const couldConnect = provider.ConnectionError === ''
+
+            outText += `\n\t${provider.ID}\n\t\tConnected: ${couldConnect ? "✅" : `❌ ${provider.ConnectionError.replaceAll('\n', '\n\t\t')}` }`
+            outText += couldConnect ? `\n\t\tBitswap Check: ${provider.DataAvailableOverBitswap.Found ? `✅` : "❌"} ${provider.DataAvailableOverBitswap.Error || ''}` : ''
+            outText += (couldConnect && provider.ConnectionMaddrs) ? `\n\t\tSuccessful Connection Multiaddr${provider.ConnectionMaddrs.length > 1 ? 's' : ''}:\n\t\t\t${provider.ConnectionMaddrs?.join('\n\t\t\t') || ''}` : ''
+            outText += (provider.Addrs.length > 0) ? `\n\t\tPeer Multiaddrs:\n\t\t\t${provider.Addrs.join('\n\t\t\t')}` : ''
+        }
+
         return outText
     }
 </script>
