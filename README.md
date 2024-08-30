@@ -4,17 +4,40 @@
 
 A debugging tool for checking the retrievability of data by IPFS peers
 
-## Documentation
+## Install
 
-### Build
+`go install github.com/ipfs/ipfs-check@latest` will build and install the server binary in your global Go binary directory (e.g. `~/go/bin`)
 
-`go build` will build the server binary in your local directory
+### Docker
 
-### Install
+Automated Docker container releases are available from the [Github container registry](https://github.com/ipfs/ipfs-check/pkgs/container/ipfs-check):
 
-`go install` will build and install the server binary in your global Go binary directory (e.g. `~/go/bin`)
+- Releases
+  - `latest` always points at the latest stable release
+  - `vN.N.N` point at a specific [release tag](https://github.com/ipfs/ipfs-check/releases)
+- Unreleased developer builds
+  - `main-latest` always points at the `HEAD` of the `main` branch
+  - `main-YYYY-DD-MM-GITSHA` points at a specific commit from the `main` branch
+- ⚠️ Experimental, unstable builds
+  - `staging-latest` always points at the `HEAD` of the `staging` branch
+  - `staging-YYYY-DD-MM-GITSHA` points at a specific commit from the `staging` branch
+  - This tag is used by developers for internal testing, not intended for end users
 
-### Deploy
+When using Docker, make sure to pass necessary config via `-e`:
+```console
+$ docker pull ghcr.io/ipfs/ipfs-check:main-latest
+$ docker run --rm -it --net=host -e IPFS_CHECK_ACCELERATED_DHT=true ghcr.io/ipfs/ipfs-check:main-latest
+```
+
+Learn available variables via `./ipfs-check --help`
+
+## Build
+
+### Backend
+
+`go build` will build the `./ipfs-check` binary in your local directory
+
+### Frontend
 
 There are web assets in `web` that interact with the Go HTTP server that can be deployed however you deploy web assets.
 Maybe just deploy it on IPFS and reference it with DNSLink.
@@ -23,14 +46,6 @@ For anything other than local testing you're going to want to have a proxy to gi
 
 At a minimum, the following files should be available from your web-server on prod: `web/index.html`, `web/tachyons.min.css`.
 
-## Docker
-
-There's a `Dockerfile` that runs the tool in docker.
-
-```sh
-docker build -t ipfs-check .
-docker run -d ipfs-check
-```
 
 ## Running locally
 
