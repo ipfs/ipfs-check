@@ -69,6 +69,8 @@ func main() {
 	}
 }
 
+const DEFAULT_CHECK_TIMEOUT = 60
+
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
 	log.Printf("Starting %s %s\n", name, version)
 	l, err := net.Listen("tcp", tcpListener)
@@ -99,7 +101,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 			err = errors.New("missing 'cid' query parameter")
 		}
 
-		timeout := 60
+		timeout := DEFAULT_CHECK_TIMEOUT
 		if timeoutStr != "" {
 			timeout, err = strconv.Atoi(timeoutStr)
 			if err != nil {
