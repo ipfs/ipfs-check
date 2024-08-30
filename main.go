@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log"
 	"net"
 	"net/http"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/urfave/cli/v2"
@@ -48,6 +49,7 @@ func main() {
 	}
 	app.Action = func(cctx *cli.Context) error {
 		ctx := cctx.Context
+
 		d, err := newDaemon(ctx, cctx.Bool("accelerated-dht"))
 		if err != nil {
 			return err
@@ -62,13 +64,12 @@ func main() {
 }
 
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
-	fmt.Printf("Starting %s %s\n", name, version)
+	log.Printf("Starting %s %s\n", name, version)
 	l, err := net.Listen("tcp", tcpListener)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("listening on %v\n", l.Addr())
 	log.Printf("Libp2p host peer id %s\n", d.h.ID())
 	log.Printf("Libp2p host listening on %v\n", d.h.Addrs())
 	log.Printf("listening on %v\n", l.Addr())
@@ -79,7 +80,23 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 
 	checkHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
-		data, err := d.runCheck(r.URL.Query())
+
+		maStr := r.URL.Query().Get("multiaddr")
+		cidStr := r.URL.Query().Get("cid")
+
+		if cidStr == "" {
+			err = errors.New("missing 'cid' argument")
+		}
+
+		var err error
+		var data interface{}
+
+		if maStr == "" {
+			data, err = d.runCidCheck(r.Context(), cidStr)
+		} else {
+			data, err = d.runPeerCheck(r.Context(), maStr, cidStr)
+		}
+
 		if err == nil {
 			w.Header().Add("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(data)
@@ -89,13 +106,16 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		}
 	}
 
-	// Create a custom registry
-	reg := prometheus.NewRegistry()
+	// Register the default Go collector
+	d.promRegistry.MustRegister(collectors.NewGoCollector())
+
+	// Register the process collector
+	d.promRegistry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
 	requestsTotal := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
-			Help: "Total number of slow requests",
+			Help: "Total number of HTTP requests",
 		},
 		[]string{"code"},
 	)
@@ -103,22 +123,23 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 	requestDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "http_request_duration_seconds",
-			Help:    "Duration of slow requests",
+			Help:    "Duration of HTTP requests",
 			Buckets: prometheus.DefBuckets,
 		},
 		[]string{"code"},
 	)
 
 	requestsInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "slow_requests_in_flight",
-		Help: "Number of slow requests currently being served",
+		Name: "http_requests_in_flight",
+		Help: "Number of HTTP requests currently being served",
 	})
 
 	// Register metrics with our custom registry
-	reg.MustRegister(requestsTotal)
-	reg.MustRegister(requestDuration)
-	reg.MustRegister(requestsInFlight)
-	// Instrument the slowHandler
+	d.promRegistry.MustRegister(requestsTotal)
+	d.promRegistry.MustRegister(requestDuration)
+	d.promRegistry.MustRegister(requestsInFlight)
+
+	// Instrument the checkHandler
 	instrumentedHandler := promhttp.InstrumentHandlerCounter(
 		requestsTotal,
 		promhttp.InstrumentHandlerDuration(
@@ -130,14 +151,10 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		),
 	)
 
-	// 1. Is the peer findable in the DHT?
-	// 2. Does the multiaddr work? If not, what's the error?
-	// 3. Is the CID in the DHT?
-	// 4. Does the peer respond that it has the given data over Bitswap?
 	http.Handle("/check", instrumentedHandler)
 
-	http.Handle("/metrics/libp2p", BasicAuth(promhttp.Handler(), metricsUsername, metricPassword))
-	http.Handle("/metrics/http", BasicAuth(promhttp.HandlerFor(reg, promhttp.HandlerOpts{}), metricsUsername, metricPassword))
+	// Use a single metrics endpoint for all Prometheus metrics
+	http.Handle("/metrics", BasicAuth(promhttp.HandlerFor(d.promRegistry, promhttp.HandlerOpts{}), metricsUsername, metricPassword))
 
 	done := make(chan error, 1)
 	go func() {

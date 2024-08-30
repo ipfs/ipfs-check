@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"sync"
 	"time"
 
@@ -20,10 +18,11 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type kademlia interface {
@@ -36,7 +35,12 @@ type daemon struct {
 	dht            kademlia
 	dhtMessenger   *dhtpb.ProtocolMessenger
 	createTestHost func() (host.Host, error)
+	promRegistry   *prometheus.Registry
 }
+
+// number of providers at which to stop looking for providers in the DHT
+// When doing a check only with a CID
+var MaxProvidersCount = 10
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
@@ -49,6 +53,9 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
+	// Create a custom registry for all prometheus metrics
+	promRegistry := prometheus.NewRegistry()
+
 	h, err := libp2p.New(
 		libp2p.DefaultMuxers,
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
@@ -56,6 +63,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 		libp2p.ResourceManager(rm),
 		libp2p.EnableHolePunching(),
+		libp2p.PrometheusRegisterer(promRegistry),
 		libp2p.UserAgent(userAgent),
 	)
 	if err != nil {
@@ -88,15 +96,20 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	return &daemon{h: h, dht: d, dhtMessenger: pm, createTestHost: func() (host.Host, error) {
-		return libp2p.New(
-			libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
-			libp2p.DefaultMuxers,
-			libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
-			libp2p.EnableHolePunching(),
-			libp2p.UserAgent(userAgent),
-		)
-	}}, nil
+	return &daemon{
+		h:            h,
+		dht:          d,
+		dhtMessenger: pm,
+		promRegistry: promRegistry,
+		createTestHost: func() (host.Host, error) {
+			return libp2p.New(
+				libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
+				libp2p.DefaultMuxers,
+				libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
+				libp2p.EnableHolePunching(),
+				libp2p.UserAgent(userAgent),
+			)
+		}}, nil
 }
 
 func (d *daemon) mustStart() {
@@ -109,18 +122,101 @@ func (d *daemon) mustStart() {
 
 }
 
-func (d *daemon) runCheck(query url.Values) (*output, error) {
-	maStr := query.Get("multiaddr")
-	cidStr := query.Get("cid")
+type cidCheckOutput *[]providerOutput
 
-	if maStr == "" {
-		return nil, errors.New("missing 'multiaddr' argument")
+type providerOutput struct {
+	ID                       string
+	ConnectionError          string
+	Addrs                    []string
+	ConnectionMaddrs         []string
+	DataAvailableOverBitswap BitswapCheckOutput
+}
+
+// runCidCheck looks up the DHT for providers of a given CID and then checks their connectivity and Bitswap availability
+func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput, error) {
+	cid, err := cid.Decode(cidStr)
+	if err != nil {
+		return nil, err
 	}
 
-	if cidStr == "" {
-		return nil, errors.New("missing 'cid' argument")
+	out := make([]providerOutput, 0, MaxProvidersCount)
+
+	queryCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	provsCh := d.dht.FindProvidersAsync(queryCtx, cid, MaxProvidersCount)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for provider := range provsCh {
+		wg.Add(1)
+		go func(provider peer.AddrInfo) {
+			defer wg.Done()
+
+			addrs := []string{}
+			if len(provider.Addrs) > 0 {
+				for _, addr := range provider.Addrs {
+					if manet.IsPublicAddr(addr) { // only return public addrs
+						addrs = append(addrs, addr.String())
+					}
+				}
+			}
+
+			provOutput := providerOutput{
+				ID:                       provider.ID.String(),
+				Addrs:                    addrs,
+				DataAvailableOverBitswap: BitswapCheckOutput{},
+			}
+
+			testHost, err := d.createTestHost()
+			if err != nil {
+				log.Printf("Error creating test host: %v\n", err)
+				return
+			}
+			defer testHost.Close()
+
+			// Test Is the target connectable
+			dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+			defer dialCancel()
+
+			testHost.Connect(dialCtx, provider)
+			// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
+			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
+
+			if connErr != nil {
+				provOutput.ConnectionError = connErr.Error()
+			} else {
+				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
+				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
+				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cid, p2pAddr)
+
+				for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
+					provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
+				}
+			}
+
+			mu.Lock()
+			out = append(out, provOutput)
+			mu.Unlock()
+		}(provider)
 	}
 
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	return &out, nil
+}
+
+type peerCheckOutput struct {
+	ConnectionError             string
+	PeerFoundInDHT              map[string]int
+	ProviderRecordFromPeerInDHT bool
+	ConnectionMaddrs            []string
+	DataAvailableOverBitswap    BitswapCheckOutput
+}
+
+// runPeerCheck checks the connectivity and Bitswap availability of a CID from a given peer (either with just peer ID or specific multiaddr)
+func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerCheckOutput, error) {
 	ma, err := multiaddr.NewMultiaddr(maStr)
 	if err != nil {
 		return nil, err
@@ -139,8 +235,7 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
-	out := &output{}
+	out := &peerCheckOutput{}
 
 	connectionFailed := false
 
@@ -174,15 +269,14 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 
 	if !connectionFailed {
 		// Test Is the target connectable
-		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*120)
 
-		// we call NewStream instead of Connect to force NAT hole punching
-		// See https://github.com/libp2p/go-libp2p/issues/2714
-		testHost.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.RecentlyConnectedAddrTTL)
+		testHost.Connect(dialCtx, *ai)
+		// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
-			out.ConnectionError = fmt.Sprintf("error dialing to peer: %s", connErr.Error())
+			out.ConnectionError = connErr.Error()
 			return out, nil
 		}
 	}
@@ -198,8 +292,15 @@ func (d *daemon) runCheck(query url.Values) (*output, error) {
 	return out, nil
 }
 
+type BitswapCheckOutput struct {
+	Duration  time.Duration
+	Found     bool
+	Responded bool
+	Error     string
+}
+
 func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiaddr.Multiaddr) BitswapCheckOutput {
-	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the temporary peer: %s", c, ma, host.ID())
+	log.Printf("Start of Bitswap check for cid %s by attempting to connect to ma: %v with the peer: %s", c, ma, host.ID())
 	out := BitswapCheckOutput{}
 	start := time.Now()
 
@@ -217,21 +318,6 @@ func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiadd
 	log.Printf("End of Bitswap check for %s by attempting to connect to ma: %v", c, ma)
 	out.Duration = time.Since(start)
 	return out
-}
-
-type BitswapCheckOutput struct {
-	Duration  time.Duration
-	Found     bool
-	Responded bool
-	Error     string
-}
-
-type output struct {
-	ConnectionError             string
-	PeerFoundInDHT              map[string]int
-	ProviderRecordFromPeerInDHT bool
-	ConnectionMaddrs            []string
-	DataAvailableOverBitswap    BitswapCheckOutput
 }
 
 func peerAddrsInDHT(ctx context.Context, d kademlia, messenger *dhtpb.ProtocolMessenger, p peer.ID) (map[string]int, error) {

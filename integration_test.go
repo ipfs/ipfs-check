@@ -21,7 +21,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/multiformats/go-multihash"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,6 +63,7 @@ func TestBasicIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		d := &daemon{
+			promRegistry: prometheus.NewRegistry(),
 			h:            queryHost,
 			dht:          queryDHT,
 			dhtMessenger: pm,
@@ -156,5 +159,35 @@ func TestBasicIntegration(t *testing.T) {
 		obj.Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsFalse()
 		obj.Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
+	})
+
+	t.Run("Data found on reachable peer with just cid", func(t *testing.T) {
+		testData := []byte(t.Name())
+		mh, err := multihash.Sum(testData, multihash.SHA2_256, -1)
+		require.NoError(t, err)
+		testCid := cid.NewCidV1(cid.Raw, mh)
+		testBlock, err := blocks.NewBlockWithCid(testData, testCid)
+		require.NoError(t, err)
+		err = bstore.Put(ctx, testBlock)
+		require.NoError(t, err)
+		err = dhtClient.Provide(ctx, testCid, true)
+		require.NoError(t, err)
+
+		res := test.QueryCid(t, "http://localhost:1234", testCid.String())
+
+		res.Length().IsEqual(1)
+		res.Value(0).Object().Value("ID").String().IsEqual(h.ID().String())
+		res.Value(0).Object().Value("ConnectionError").String().IsEmpty()
+		testHostAddrs := h.Addrs()
+		for _, addr := range testHostAddrs {
+			if manet.IsPublicAddr(addr) {
+				res.Value(0).Object().Value("Addrs").Array().ContainsAny(addr.String())
+			}
+		}
+
+		res.Value(0).Object().Value("ConnectionMaddrs").Array()
+		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
+		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
+		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
 	})
 }

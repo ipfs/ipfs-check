@@ -71,10 +71,38 @@ Note that the `multiaddr` can be:
 
 ### Check results
 
-The server performs several checks given a CID. The results of the check are expressed by the `output` type:
+The server performs several checks depending on whether you also pass a **multiaddr** or just a **cid**.
+
+#### Results when only a `cid` is passed
+
+The results of the check are expressed by the `cidCheckOutput` type:
 
 ```go
-type output struct {
+type cidCheckOutput *[]providerOutput
+
+type providerOutput struct {
+	ID                       string
+	ConnectionError          string
+	Addrs                    []string
+	ConnectionMaddrs         []string
+	DataAvailableOverBitswap BitswapCheckOutput
+}
+```
+
+The `providerOutput` type contains the following fields:
+
+- `ID`: The peer ID of the provider.
+- `ConnectionError`: An error message if the connection to the provider failed.
+- `Addrs`: The multiaddrs of the provider from the DHT.
+- `ConnectionMaddrs`: The multiaddrs that were used to connect to the provider.
+- `DataAvailableOverBitswap`: The result of the Bitswap check.
+
+#### Results when a `multiaddr` and a `cid` are passed
+
+The results of the check are expressed by the `peerCheckOutput` type:
+
+```go
+type peerCheckOutput struct {
 	ConnectionError             string
 	PeerFoundInDHT              map[string]int
 	ProviderRecordFromPeerInDHT bool
@@ -115,8 +143,7 @@ type BitswapCheckOutput struct {
 
 The ipfs-check server is instrumented and exposes two Prometheus metrics endpoints:
 
-- `/metrics/libp2p` exposes [go-libp2p metrics](https://blog.libp2p.io/2023-08-15-metrics-in-go-libp2p/).
-- `/metrics/http` exposes http metrics for the check endpoint.
+- `/metrics` exposes [go-libp2p metrics](https://blog.libp2p.io/2023-08-15-metrics-in-go-libp2p/) and http metrics for the check endpoint.
 
 ### Securing the metrics endpoints
 
