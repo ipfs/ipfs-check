@@ -36,6 +36,11 @@
                 <datalist id="defaultBackendURLs">
                     <option value="https://ipfs-check-backend.ipfs.io">
                 </datalist>
+                <div class="mt3">
+                    <label class="db f6 fw6" for="timeoutSeconds">Check Timeout (seconds)</label>
+                    <input class="db w-100 mt2" type="range" id="timeoutSeconds" name="timeoutSeconds" min="5" max="300" value="60" step="1">
+                    <output class="db fw6 f6" for="timeoutSeconds" id="timeoutValue">60</output>
+                </div>
             </details>
             <div class="db mv4">
                 <button id="submit" type="submit" class="flex items-center db ph3 pv2 link pointer glow o-90 bg-blue white fw6 f5 bn br2">
@@ -122,6 +127,8 @@
 <script>
     window.addEventListener('load', function () {
         initFormValues(new URL(window.location))
+
+
         document.getElementById('queryForm').addEventListener('submit', async function (e) {
             e.preventDefault() // dont do a browser form post
 
@@ -164,6 +171,15 @@
         for (const [key, val] of url.searchParams) {
             document.getElementById(key)?.setAttribute('value', val)
         }
+
+        const timeoutSlider = document.getElementById('timeoutSeconds')
+        const timeoutValue = document.getElementById('timeoutValue')
+
+        timeoutSlider.addEventListener('input', function() {
+          timeoutValue.textContent = this.value
+        })
+        // set initial value
+        timeoutValue.textContent = timeoutSlider.value
     }
 
     function showInQuery (formData) {
@@ -199,6 +215,7 @@
         const button = document.getElementById('submit')
         button.toggleAttribute('disabled')
         const spinner = document.getElementById('loading-spinner')
+        // Toggle spinner visibility
         spinner.classList.toggle('dn')
     }
 
