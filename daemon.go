@@ -102,6 +102,8 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		dhtMessenger: pm,
 		promRegistry: promRegistry,
 		createTestHost: func() (host.Host, error) {
+			// TODO: when behind NAT, this will fail to determine its own public addresses which will block it from running dctur and hole punching
+			// See https://github.com/libp2p/go-libp2p/issues/2941
 			return libp2p.New(
 				libp2p.ConnectionGater(&privateAddrFilterConnectionGater{}),
 				libp2p.DefaultMuxers,
@@ -156,18 +158,30 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput
 		go func(provider peer.AddrInfo) {
 			defer wg.Done()
 
-			addrs := []string{}
+			outputAddrs := []string{}
 			if len(provider.Addrs) > 0 {
 				for _, addr := range provider.Addrs {
 					if manet.IsPublicAddr(addr) { // only return public addrs
-						addrs = append(addrs, addr.String())
+						outputAddrs = append(outputAddrs, addr.String())
+					}
+				}
+			} else {
+				// If no maddrs were returned from the FindProvider rpc call, try to get them from the DHT
+				peerAddrs, err := d.dht.FindPeer(ctx, provider.ID)
+				if err == nil {
+					for _, addr := range peerAddrs.Addrs {
+						if manet.IsPublicAddr(addr) { // only return public addrs
+							// Add to both output and to provider addrs for the check
+							outputAddrs = append(outputAddrs, addr.String())
+							provider.Addrs = append(provider.Addrs, addr)
+						}
 					}
 				}
 			}
 
 			provOutput := providerOutput{
 				ID:                       provider.ID.String(),
-				Addrs:                    addrs,
+				Addrs:                    outputAddrs,
 				DataAvailableOverBitswap: BitswapCheckOutput{},
 			}
 
