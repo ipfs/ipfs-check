@@ -36,6 +36,11 @@
                 <datalist id="defaultBackendURLs">
                     <option value="https://ipfs-check-backend.ipfs.io">
                 </datalist>
+                <label class="db mt3 f6 fw6" for="ipniIndexer">IPNI Indexer</label>
+                <input class="db w-100 pa2" type="url" id="ipniIndexer" name="ipniIndexer" value="https://cid.contact" placeholder="https://cid.contact" list="defaultIndexers" required>
+                <datalist id="defaultIndexers">
+                    <option value="https://cid.contact">
+                </datalist>
                 <div class="mt3">
                     <label class="db f6 fw6" for="timeoutSeconds">Check Timeout (seconds)</label>
                     <input class="db w-100 mt2" type="range" id="timeoutSeconds" name="timeoutSeconds" min="5" max="300" value="60" step="1">
