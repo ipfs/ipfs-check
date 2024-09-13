@@ -42,7 +42,6 @@ func FindIPNIProviders(ctx context.Context, cidArg string, indexer string) error
 	return dhFind(ctx, mhs, indexer)
 }
 
-
 func dhFind(ctx context.Context, mhs []multihash.Multihash, indexer string) error {
 	// cl, err := client.NewDHashClient(
 	// 	client.WithProvidersURL(indexers...),
