@@ -70,6 +70,7 @@ func main() {
 }
 
 const DEFAULT_CHECK_TIMEOUT = 60
+const DEFAULT_IPNI_INDEXER = "https://cid.contact"
 
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
 	log.Printf("Starting %s %s\n", name, version)
@@ -96,6 +97,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		maStr := r.URL.Query().Get("multiaddr")
 		cidStr := r.URL.Query().Get("cid")
 		timeoutStr := r.URL.Query().Get("timeoutSeconds")
+		ipniIndexer := r.URL.Query().Get("ipniIndexer")
 
 		if cidStr == "" {
 			err = errors.New("missing 'cid' query parameter")
@@ -109,6 +111,12 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 				return
 			}
 		}
+
+		if ipniIndexer == "" {
+			ipniIndexer = DEFAULT_IPNI_INDEXER
+		}
+
+		FindIPNIProviders(ctx, cidStr, ipniIndexer)
 
 		log.Printf("Checking %s with timeout %d seconds", cidStr, timeout)
 		withTimeout, cancel := context.WithTimeout(r.Context(), time.Duration(timeout)*time.Second)
