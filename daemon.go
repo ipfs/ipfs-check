@@ -9,6 +9,8 @@ import (
 
 	vole "github.com/ipfs-shipyard/vole/lib"
 	"github.com/ipfs/boxo/ipns"
+	"github.com/ipfs/boxo/routing/http/client"
+	"github.com/ipfs/boxo/routing/http/contentrouter"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -137,23 +139,51 @@ type providerOutput struct {
 	DataAvailableOverBitswap BitswapCheckOutput
 }
 
-// runCidCheck looks up the DHT for providers of a given CID and then checks their connectivity and Bitswap availability
-func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput, error) {
-	cid, err := cid.Decode(cidStr)
+// runCidCheck finds providers of a given CID, using the DHT and IPNI
+// concurrently. A check of connectivity and Bitswap availability is performed
+// for each provider found.
+func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string) (cidCheckOutput, error) {
+	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to creat content router client: %w", err)
 	}
-
-	out := make([]providerOutput, 0, MaxProvidersCount)
+	routerClient := contentrouter.NewContentRoutingClient(crClient)
 
 	queryCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	provsCh := d.dht.FindProvidersAsync(queryCtx, cid, MaxProvidersCount)
 
+	// Find providers with DHT and IPNI concurrently.
+	provsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, MaxProvidersCount)
+	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, MaxProvidersCount)
+
+	out := make([]providerOutput, 0, MaxProvidersCount)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	for provider := range provsCh {
+	var done bool
+	for !done {
+		var provider peer.AddrInfo
+		var open bool
+
+		select {
+		case provider, open = <-provsCh:
+			if !open {
+				provsCh = nil
+				if ipniProvsCh == nil {
+					done = true
+				}
+				continue
+			}
+		case provider, open = <-ipniProvsCh:
+			if !open {
+				ipniProvsCh = nil
+				if provsCh == nil {
+					done = true
+				}
+				continue
+			}
+		}
+
 		wg.Add(1)
 		go func(provider peer.AddrInfo) {
 			defer wg.Done()
@@ -196,7 +226,7 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput
 			dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
 			defer dialCancel()
 
-			testHost.Connect(dialCtx, provider)
+			_ = testHost.Connect(dialCtx, provider)
 			// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 
@@ -205,7 +235,7 @@ func (d *daemon) runCidCheck(ctx context.Context, cidStr string) (cidCheckOutput
 			} else {
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
-				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cid, p2pAddr)
+				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cidKey, p2pAddr)
 
 				for _, c := range testHost.Network().ConnsToPeer(provider.ID) {
 					provOutput.ConnectionMaddrs = append(provOutput.ConnectionMaddrs, c.RemoteMultiaddr().String())
@@ -233,7 +263,7 @@ type peerCheckOutput struct {
 }
 
 // runPeerCheck checks the connectivity and Bitswap availability of a CID from a given peer (either with just peer ID or specific multiaddr)
-func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerCheckOutput, error) {
+func (d *daemon) runPeerCheck(ctx context.Context, maStr string, c cid.Cid) (*peerCheckOutput, error) {
 	ma, err := multiaddr.NewMultiaddr(maStr)
 	if err != nil {
 		return nil, err
@@ -246,11 +276,6 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 
 	// User has only passed a PeerID without any maddrs
 	onlyPeerID := len(ai.Addrs) == 0
-
-	c, err := cid.Decode(cidStr)
-	if err != nil {
-		return nil, err
-	}
 
 	out := &peerCheckOutput{}
 
@@ -288,7 +313,7 @@ func (d *daemon) runPeerCheck(ctx context.Context, maStr, cidStr string) (*peerC
 		// Test Is the target connectable
 		dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*120)
 
-		testHost.Connect(dialCtx, *ai)
+		_ = testHost.Connect(dialCtx, *ai)
 		// Call NewStream to force NAT hole punching. see https://github.com/libp2p/go-libp2p/issues/2714
 		_, connErr := testHost.NewStream(dialCtx, ai.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
