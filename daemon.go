@@ -41,7 +41,6 @@ type daemon struct {
 }
 
 const (
-	defaultIndexerURL = "https://cid.contact"
 	// number of providers at which to stop looking for providers in the DHT
 	// When doing a check only with a CID
 	maxProvidersCount = 10
@@ -150,10 +149,6 @@ type providerOutput struct {
 // concurrently. A check of connectivity and Bitswap availability is performed
 // for each provider found.
 func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string) (cidCheckOutput, error) {
-	if ipniURL == "" {
-		ipniURL = defaultIndexerURL
-	}
-
 	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired())
 	if err != nil {
 		return nil, fmt.Errorf("failed to creat content router client: %w", err)
