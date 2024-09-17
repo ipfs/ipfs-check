@@ -70,7 +70,6 @@ func main() {
 
 const (
 	defaultCheckTimeout = 60 * time.Second
-	defaultIndexerURL   = "https://cid.contact/routing/v1/providers/"
 )
 
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
@@ -118,10 +117,6 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 				http.Error(w, "Invalid timeout value (in seconds)", http.StatusBadRequest)
 				return
 			}
-		}
-
-		if ipniURL == "" {
-			ipniURL = defaultIndexerURL
 		}
 
 		log.Printf("Checking %s with timeout %s seconds", cidStr, checkTimeout.String())
