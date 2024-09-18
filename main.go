@@ -133,9 +133,9 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		if maStr == "" {
 			data, err = d.runCidCheck(withTimeout, cidKey, ipniURL)
 		} else {
-			ma, ai, err := parseMultiaddr(maStr)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+			ma, ai, err400 := parseMultiaddr(maStr)
+			if err400 != nil {
+				http.Error(w, err400.Error(), http.StatusBadRequest)
 				return
 			}
 			data, err = d.runPeerCheck(withTimeout, ma, ai, cidKey, ipniURL)
