@@ -271,31 +271,35 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 }
 
 type peerCheckOutput struct {
-	ConnectionError             string
-	PeerFoundInDHT              map[string]int
-	ProviderRecordFromPeerInDHT bool
-	ConnectionMaddrs            []string
-	DataAvailableOverBitswap    BitswapCheckOutput
-	Source                      string
+	ConnectionError              string
+	PeerFoundInDHT               map[string]int
+	ProviderRecordFromPeerInDHT  bool
+	ProviderRecordFromPeerInIPNI bool
+	ConnectionMaddrs             []string
+	DataAvailableOverBitswap     BitswapCheckOutput
 }
 
 // runPeerCheck checks the connectivity and Bitswap availability of a CID from a given peer (either with just peer ID or specific multiaddr)
-func (d *daemon) runPeerCheck(ctx context.Context, maStr string, c cid.Cid) (*peerCheckOutput, error) {
-	ma, err := multiaddr.NewMultiaddr(maStr)
-	if err != nil {
-		return nil, err
-	}
-
-	ai, err := peer.AddrInfoFromP2pAddr(ma)
-	if err != nil {
-		return nil, err
-	}
-
+func (d *daemon) runPeerCheck(ctx context.Context, ma multiaddr.Multiaddr, ai *peer.AddrInfo, c cid.Cid, ipniURL string) (*peerCheckOutput, error) {
 	addrMap, peerAddrDHTErr := peerAddrsInDHT(ctx, d.dht, d.dhtMessenger, ai.ID)
 
+	var inDHT, inIPNI bool
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		inDHT = providerRecordFromPeerInDHT(ctx, d.dht, c, ai.ID)
+		wg.Done()
+	}()
+	go func() {
+		inIPNI = providerRecordFromPeerInIPNI(ctx, ipniURL, c, ai.ID)
+		wg.Done()
+	}()
+	wg.Wait()
+
 	out := &peerCheckOutput{
-		ProviderRecordFromPeerInDHT: ProviderRecordFromPeerInDHT(ctx, d.dht, c, ai.ID),
-		PeerFoundInDHT:              addrMap,
+		ProviderRecordFromPeerInDHT:  inDHT,
+		ProviderRecordFromPeerInIPNI: inIPNI,
+		PeerFoundInDHT:               addrMap,
 	}
 
 	var connectionFailed bool
@@ -416,10 +420,37 @@ func peerAddrsInDHT(ctx context.Context, d kademlia, messenger *dhtpb.ProtocolMe
 	return addrMap, nil
 }
 
-func ProviderRecordFromPeerInDHT(ctx context.Context, d kademlia, c cid.Cid, p peer.ID) bool {
+func providerRecordFromPeerInDHT(ctx context.Context, d kademlia, c cid.Cid, p peer.ID) bool {
 	queryCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	provsCh := d.FindProvidersAsync(queryCtx, c, 0)
+	for {
+		select {
+		case prov, ok := <-provsCh:
+			if !ok {
+				return false
+			}
+			if prov.ID == p {
+				return true
+			}
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
+func providerRecordFromPeerInIPNI(ctx context.Context, ipniURL string, c cid.Cid, p peer.ID) bool {
+	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired())
+	if err != nil {
+		log.Printf("failed to creat content router client: %s\n", err)
+		return false
+	}
+	routerClient := contentrouter.NewContentRoutingClient(crClient)
+
+	queryCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	provsCh := routerClient.FindProvidersAsync(queryCtx, c, 0)
 	for {
 		select {
 		case prov, ok := <-provsCh:

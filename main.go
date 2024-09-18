@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -131,7 +133,12 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		if maStr == "" {
 			data, err = d.runCidCheck(withTimeout, cidKey, ipniURL)
 		} else {
-			data, err = d.runPeerCheck(withTimeout, maStr, cidKey)
+			ma, ai, err := parseMultiaddr(maStr)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			data, err = d.runPeerCheck(withTimeout, ma, ai, cidKey, ipniURL)
 		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -246,4 +253,16 @@ func getWebAddress(l net.Listener) string {
 	default:
 		return addr
 	}
+}
+
+func parseMultiaddr(maStr string) (multiaddr.Multiaddr, *peer.AddrInfo, error) {
+	ma, err := multiaddr.NewMultiaddr(maStr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ai, err := peer.AddrInfoFromP2pAddr(ma)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ma, ai, nil
 }
