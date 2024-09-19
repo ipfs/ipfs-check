@@ -267,9 +267,7 @@
         
         if (respObj.ProviderRecordFromPeerInDHT === true || respObj.ProviderRecordFromPeerInIPNI === true) {
             outText += "✅ Found multihash advertised in "
-            if (respObj.ProviderRecordFromPeerInDHT === true && respObj.ProviderRecordFromPeerInIPNI === true) {
-                outText += "DHT and IPNI\n"
-            } else if (respObj.ProviderRecordFromPeerInDHT === true) {
+            if (respObj.ProviderRecordFromPeerInDHT === true) {
                 outText += "DHT\n"
             } else {
                 outText += "IPNI\n"
