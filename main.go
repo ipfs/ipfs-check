@@ -5,18 +5,18 @@ import (
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
-	"errors"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
+	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -60,6 +60,7 @@ func main() {
 		if err != nil {
 			return err
 		}
+
 		return startServer(ctx, d, cctx.String("address"), cctx.String("metrics-auth-username"), cctx.String("metrics-auth-password"))
 	}
 
@@ -69,7 +70,10 @@ func main() {
 	}
 }
 
-const DEFAULT_CHECK_TIMEOUT = 60
+const (
+	defaultCheckTimeout = 60 * time.Second
+	defaultIndexerURL   = "https://cid.contact"
+)
 
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
 	log.Printf("Starting %s %s\n", name, version)
@@ -96,39 +100,52 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		maStr := r.URL.Query().Get("multiaddr")
 		cidStr := r.URL.Query().Get("cid")
 		timeoutStr := r.URL.Query().Get("timeoutSeconds")
+		ipniURL := r.URL.Query().Get("ipniIndexer")
 
 		if cidStr == "" {
-			err = errors.New("missing 'cid' query parameter")
+			http.Error(w, "missing 'cid' query parameter", http.StatusBadRequest)
+			return
+		}
+		cidKey, err := cid.Decode(cidStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
-		timeout := DEFAULT_CHECK_TIMEOUT
+		checkTimeout := defaultCheckTimeout
 		if timeoutStr != "" {
-			timeout, err = strconv.Atoi(timeoutStr)
+			checkTimeout, err = time.ParseDuration(timeoutStr + "s")
 			if err != nil {
 				http.Error(w, "Invalid timeout value (in seconds)", http.StatusBadRequest)
 				return
 			}
 		}
 
-		log.Printf("Checking %s with timeout %d seconds", cidStr, timeout)
-		withTimeout, cancel := context.WithTimeout(r.Context(), time.Duration(timeout)*time.Second)
+		if ipniURL == "" {
+			ipniURL = defaultIndexerURL
+		}
+
+		log.Printf("Checking %s with timeout %s seconds", cidStr, checkTimeout.String())
+		withTimeout, cancel := context.WithTimeout(r.Context(), checkTimeout)
 		defer cancel()
-		var err error
+
 		var data interface{}
-
 		if maStr == "" {
-			data, err = d.runCidCheck(withTimeout, cidStr)
+			data, err = d.runCidCheck(withTimeout, cidKey, ipniURL)
 		} else {
-			data, err = d.runPeerCheck(withTimeout, maStr, cidStr)
+			ma, ai, err400 := parseMultiaddr(maStr)
+			if err400 != nil {
+				http.Error(w, err400.Error(), http.StatusBadRequest)
+				return
+			}
+			data, err = d.runPeerCheck(withTimeout, ma, ai, cidKey, ipniURL)
 		}
-
-		if err == nil {
-			w.Header().Add("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(data)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		w.Header().Add("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(data)
 	}
 
 	// Register the default Go collector
@@ -231,13 +248,21 @@ func getWebAddress(l net.Listener) string {
 		return addr
 	}
 	switch host {
-	case "":
-		fallthrough
-	case "0.0.0.0":
-		fallthrough
-	case "::":
+	case "", "0.0.0.0", "::":
 		return net.JoinHostPort("localhost", port)
 	default:
 		return addr
 	}
+}
+
+func parseMultiaddr(maStr string) (multiaddr.Multiaddr, *peer.AddrInfo, error) {
+	ma, err := multiaddr.NewMultiaddr(maStr)
+	if err != nil {
+		return nil, nil, err
+	}
+	ai, err := peer.AddrInfoFromP2pAddr(ma)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ma, ai, nil
 }
