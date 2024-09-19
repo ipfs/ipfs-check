@@ -151,7 +151,7 @@ type providerOutput struct {
 func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string) (cidCheckOutput, error) {
 	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired())
 	if err != nil {
-		return nil, fmt.Errorf("failed to creat content router client: %w", err)
+		return nil, fmt.Errorf("failed to create content router client: %w", err)
 	}
 	routerClient := contentrouter.NewContentRoutingClient(crClient)
 

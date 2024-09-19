@@ -265,15 +265,17 @@
             }
         }
         
-        if (respObj.ProviderRecordFromPeerInDHT === true) {
-            outText += "✅ Found multihash advertised in the dht\n"
+        if (respObj.ProviderRecordFromPeerInDHT === true || respObj.ProviderRecordFromPeerInIPNI === true) {
+            outText += "✅ Found multihash advertised in "
+            if (respObj.ProviderRecordFromPeerInDHT === true && respObj.ProviderRecordFromPeerInIPNI === true) {
+                outText += "DHT and IPNI\n"
+            } else if (respObj.ProviderRecordFromPeerInDHT === true) {
+                outText += "DHT\n"
+            } else {
+                outText += "IPNI\n"
+            }
         } else {
-            outText += "❌ Could not find the multihash in the dht\n"
-        }
-        if (respObj.ProviderRecordFromPeerInIPNI === true) {
-            outText += "✅ Found multihash advertised in IPNI\n"
-        } else {
-            outText += "❌ Could not find the multihash in IPNI\n"
+            outText += "❌ Could not find the multihash in DHR or IPNI\n"
         }
 
         if (respObj.DataAvailableOverBitswap.Error !== "") {
