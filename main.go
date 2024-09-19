@@ -14,7 +14,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -118,7 +117,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 					return
 				}
 			}
-			cidKey = cid.NewCidV1(uint64(multicodec.Cidv1), mh)
+			cidKey = cid.NewCidV1(cid.Raw, mh)
 		}
 
 		checkTimeout := defaultCheckTimeout
