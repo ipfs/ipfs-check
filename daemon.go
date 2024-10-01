@@ -158,9 +158,16 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 	queryCtx, cancelQuery := context.WithCancel(ctx)
 	defer cancelQuery()
 
+	// half of the max providers count per source
+	providersPerSource := maxProvidersCount >> 1
+	if maxProvidersCount == 1 {
+		// Ensure at least one provider from each source when maxProvidersCount is 1
+		providersPerSource = 1
+	}
+
 	// Find providers with DHT and IPNI concurrently (each half of the max providers count)
-	dhtProvsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, maxProvidersCount>>1)
-	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, maxProvidersCount>>1)
+	dhtProvsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, providersPerSource)
+	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, providersPerSource)
 
 	out := make([]providerOutput, 0, maxProvidersCount)
 	var wg sync.WaitGroup
