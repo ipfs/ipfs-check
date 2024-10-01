@@ -149,7 +149,7 @@ type providerOutput struct {
 // concurrently. A check of connectivity and Bitswap availability is performed
 // for each provider found.
 func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string) (cidCheckOutput, error) {
-	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired())
+	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired(), client.WithProtocolFilter([]string{"transport-bitswap", "unknown"}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create content router client: %w", err)
 	}
