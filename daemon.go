@@ -49,6 +49,7 @@ const (
 	dhtSource  = "Amino DHT"
 )
 
+// TODO: make this configurable, and add support and trustless retrieval probe for transport-ipfs-gateway-http
 var defaultProtocolFilter = []string{"transport-bitswap", "unknown"}
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
