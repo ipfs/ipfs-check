@@ -158,9 +158,16 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 	queryCtx, cancelQuery := context.WithCancel(ctx)
 	defer cancelQuery()
 
-	// Find providers with DHT and IPNI concurrently.
-	provsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, maxProvidersCount)
-	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, maxProvidersCount)
+	// half of the max providers count per source
+	providersPerSource := maxProvidersCount >> 1
+	if maxProvidersCount == 1 {
+		// Ensure at least one provider from each source when maxProvidersCount is 1
+		providersPerSource = 1
+	}
+
+	// Find providers with DHT and IPNI concurrently (each half of the max providers count)
+	dhtProvsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, providersPerSource)
+	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, providersPerSource)
 
 	out := make([]providerOutput, 0, maxProvidersCount)
 	var wg sync.WaitGroup
@@ -174,9 +181,9 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 		var source string
 
 		select {
-		case provider, open = <-provsCh:
+		case provider, open = <-dhtProvsCh:
 			if !open {
-				provsCh = nil
+				dhtProvsCh = nil
 				if ipniProvsCh == nil {
 					done = true
 				}
@@ -186,7 +193,7 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 		case provider, open = <-ipniProvsCh:
 			if !open {
 				ipniProvsCh = nil
-				if provsCh == nil {
+				if dhtProvsCh == nil {
 					done = true
 				}
 				continue
