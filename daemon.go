@@ -49,6 +49,9 @@ const (
 	dhtSource  = "Amino DHT"
 )
 
+// TODO: make this configurable, and add support and trustless retrieval probe for transport-ipfs-gateway-http
+var defaultProtocolFilter = []string{"transport-bitswap", "unknown"}
+
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
 	if err != nil {
@@ -149,7 +152,11 @@ type providerOutput struct {
 // concurrently. A check of connectivity and Bitswap availability is performed
 // for each provider found.
 func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string) (cidCheckOutput, error) {
-	crClient, err := client.New(ipniURL, client.WithStreamResultsRequired())
+	crClient, err := client.New(ipniURL,
+		client.WithStreamResultsRequired(),               // // https://specs.ipfs.tech/routing/http-routing-v1/#streaming
+		client.WithProtocolFilter(defaultProtocolFilter), // IPIP-484
+		client.WithDisabledLocalFiltering(false),         // force local filtering in case remote server does not support IPIP-484
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create content router client: %w", err)
 	}
