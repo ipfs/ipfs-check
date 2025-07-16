@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -310,7 +311,7 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 			_, connErr := testHost.NewStream(dialCtx, provider.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 
 			if connErr != nil {
-				provOutput.ConnectionError = connErr.Error()
+				provOutput.ConnectionError = formatConnectionError(connErr, provider.Addrs)
 			} else {
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
@@ -441,7 +442,7 @@ func (d *daemon) runPeerCheck(ctx context.Context, ma multiaddr.Multiaddr, ai pe
 		_, connErr := testHost.NewStream(dialCtx, libp2pInfo.ID, "/ipfs/bitswap/1.2.0", "/ipfs/bitswap/1.1.0", "/ipfs/bitswap/1.0.0", "/ipfs/bitswap")
 		dialCancel()
 		if connErr != nil {
-			out.ConnectionError = connErr.Error()
+			out.ConnectionError = formatConnectionError(connErr, libp2pInfo.Addrs)
 			return out, nil
 		}
 	}
@@ -754,4 +755,36 @@ func execOnMany(ctx context.Context, waitFrac float64, timeoutPerOp time.Duratio
 		}
 	}
 	return numSuccess
+}
+
+// formatConnectionError provides a more user-friendly error message for connection failures,
+// particularly when the connection gater blocks private addresses
+func formatConnectionError(err error, addrs []multiaddr.Multiaddr) string {
+	errStr := err.Error()
+
+	// Check if this looks like a gater blocking private addresses error
+	if strings.Contains(errStr, "gater disallows connection to peer") {
+		var privateCount, publicCount int
+
+		// Count private vs public addresses
+		for _, addr := range addrs {
+			if manet.IsPublicAddr(addr) {
+				publicCount++
+			} else {
+				privateCount++
+			}
+		}
+
+		// If we have private addresses being blocked, provide a cleaner message
+		if privateCount > 0 {
+			if publicCount == 0 {
+				return fmt.Sprintf("failed to dial: all %d addresses are private/local and cannot be reached from public internet", privateCount)
+			} else {
+				return fmt.Sprintf("failed to dial: no good addresses (%d private addresses filtered out)", privateCount)
+			}
+		}
+	}
+
+	// For other errors, return the original error message
+	return errStr
 }
