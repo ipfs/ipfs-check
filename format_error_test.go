@@ -18,7 +18,7 @@ func TestFormatConnectionError(t *testing.T) {
 		addrs = append(addrs, privAddr1, privAddr2)
 
 		result := formatConnectionError(err, addrs)
-		expected := "failed to dial: all 2 addresses are private/local and cannot be reached from public internet"
+		expected := "failed to dial: all 2 addresses are private/local and cannot be reached from the public internet"
 		require.Equal(t, expected, result)
 	})
 
@@ -68,7 +68,7 @@ func TestFormatConnectionError(t *testing.T) {
 		addrs = append(addrs, privAddr1, privAddr2)
 
 		result := formatConnectionError(err, addrs)
-		expected := "failed to dial: all 2 addresses are private/local and cannot be reached from public internet"
+		expected := "failed to dial: all 2 addresses are private/local and cannot be reached from the public internet"
 		require.Equal(t, expected, result)
 	})
 }
