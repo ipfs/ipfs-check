@@ -779,9 +779,9 @@ func formatConnectionError(err error, addrs []multiaddr.Multiaddr) string {
 		if privateCount > 0 {
 			if publicCount == 0 {
 				return fmt.Sprintf("failed to dial: all %d addresses are private/local and cannot be reached from the public internet", privateCount)
-			} else {
-				return fmt.Sprintf("failed to dial: no good addresses (%d private addresses filtered out)", privateCount)
 			}
+
+			return fmt.Sprintf("failed to dial: no good addresses (%d private addresses filtered out)", privateCount)
 		}
 	}
 
