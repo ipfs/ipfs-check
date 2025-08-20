@@ -1,6 +1,6 @@
 module github.com/ipfs/ipfs-check
 
-go 1.23.10
+go 1.24
 
 require (
 	github.com/gavv/httpexpect/v2 v2.16.0
