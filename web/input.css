@@ -22,3 +22,15 @@
   --color-ipfs-link-500: #117eb3;
   --color-ipfs-washed-blue-500: #F0F6FA
 }
+
+/*
+This is placed at the bottom of the HTML, invisible, and used when ipfs-check is
+embedded in an iframe to help get the height of the iframe content.
+*/
+#__iframe_sentinel {
+  display: block;
+  height: 0;             /* no visual height */
+  clear: both;           /* accounts for floats above */
+  pointer-events: none;
+  visibility: hidden;
+}

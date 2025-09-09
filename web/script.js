@@ -283,4 +283,47 @@ function formatJustCidOutput (resp) {
     }
     outHtml += `</div>`
     return outHtml
-} 
+}
+
+/**
+ * ----------------------------------------------------------------------------------------------------------
+ * If included in an iframe, we need to allow consumers/parent frames to know the size of the iframe content.
+ * e.g. ipfs-webui's /#/diagnostics/check page, where ipfs-check is embedded
+ * ----------------------------------------------------------------------------------------------------------
+ */
+if (window.self !== window.top) {
+  let rafId = null;
+  let lastH = -1;
+
+  const sentinel = document.getElementById('__iframe_sentinel');
+
+  function measuredHeight() {
+    const rect = sentinel.getBoundingClientRect();
+    const bottom = rect.bottom + window.scrollY; // page Y of sentinel bottom
+    const documentElHeight = document.documentElement.getBoundingClientRect().height
+    return Math.min(bottom, documentElHeight);
+  }
+
+  function postSize() {
+    if (rafId != null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      const h = measuredHeight();
+      if (h !== lastH) {
+        lastH = h;
+        parent.postMessage({ type: 'iframe-size:report', width: document.documentElement.scrollWidth, height: h, scrollHeight: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth }, '*');
+      }
+    });
+  }
+
+  // triggers
+  window.addEventListener('load', postSize);
+  window.addEventListener('resize', postSize);
+  window.visualViewport?.addEventListener('resize', postSize);
+  document.addEventListener('transitionend', postSize);
+  document.fonts?.addEventListener?.('loadingdone', postSize);
+
+  new ResizeObserver(postSize).observe(document.body);
+  new MutationObserver(postSize)
+    .observe(document.body, { childList: true, subtree: true });
+}
