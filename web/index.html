@@ -10,14 +10,14 @@
     <script defer data-domain="check.ipfs.network" src="https://plausible.io/js/script.tagged-events.js"></script>
 </head>
 <body class="font-sans bg-gray-50 text-gray-900 m-0">
-<header>
+<header id="app-header">
     <h1 class="inline-block px-3 py-3 m-0 leading-tight">
         <a class="no-underline block text-lg font-bold text-gray-900" href="https://ipfs.io">IPFS <span class="text-ipfs-teal-500 font-semibold">Check</span></a>
         <span class="block text-xs font-semibold text-gray-600">Have you seen my CID?</span>
     </h1>
 </header>
 <main>
-    <section class="max-w-3xl mx-auto leading-relaxed text-gray-800 px-2 pb-8">
+    <section id="app-description" class="max-w-3xl mx-auto leading-relaxed text-gray-800 px-2 pb-8">
         <h2 class="m-0 py-0 px-2 text-xl font-bold">
             Check the retrievability of data by CID
         </h2>
@@ -45,8 +45,8 @@
                 </datalist>
                 <div class="mt-3">
                     <label class="block text-xs font-bold" for="timeoutSeconds">Check Timeout (seconds)</label>
-                    <input class="block w-full mt-2" type="range" id="timeoutSeconds" name="timeoutSeconds" min="5" max="300" value="60" step="1">
-                    <output class="block font-bold text-xs" for="timeoutSeconds" id="timeoutValue">60</output>
+                    <input class="block w-full mt-2" type="range" id="timeoutSeconds" name="timeoutSeconds" min="5" max="300" value="30" step="1">
+                    <output class="block font-bold text-xs" for="timeoutSeconds" id="timeoutValue">30</output>
                 </div>
                 <label class="inline-block mt-3 mr-3 text-xs font-bold" for="httpRetrieval">Check HTTP retrieval</label>
                 <input class="inline-block p-2" type="checkbox" id="httpRetrieval" name="httpRetrieval" checked>
@@ -57,11 +57,11 @@
                     <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Run Test
+                  <span id="button-text">Run Test</span>
                 </button>
             </div>
             <div id="output" class="leading-relaxed font-medium"></div>
-            <details class="mt-3">
+            <details class="mt-3" style="display: none;">
               <summary class="text-xs font-bold">Raw Output</summary>
               <div class="bg-gray-900 text-green-200 rounded p-4 overflow-x-auto mt-2">
                 <pre style="white-space:pre;" class="leading-relaxed font-medium language-json"><code id="raw-output"></code></pre>
@@ -69,7 +69,7 @@
             </details>
         </form>
     </section>
-    <section class="max-w-4xl mx-auto leading-relaxed text-gray-800 py-8 px-2 md:px-8">
+    <section id="app-help" class="max-w-4xl mx-auto leading-relaxed text-gray-800 py-8 px-2 md:px-8">
         <h2 class="text-xl font-bold">Where do I find my multiaddr?</h2>
         <ul class="list-disc ml-6">
             <li class="pb-2">
@@ -117,7 +117,7 @@
         </ul>
     </section>
 </main>
-<footer class="text-center py-3">
+<footer id="app-footer" class="text-center py-3">
     <a class="text-blue-600 underline" href="https://github.com/ipfs/ipfs-check">Github</a>
 </footer>
 <style>

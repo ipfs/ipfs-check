@@ -5,6 +5,7 @@ const iconInfo = `<svg class="inline w-5 h-5 text-blue-500 mr-1" fill="none" str
 
 window.addEventListener('load', function () {
     initFormValues(new URL(window.location))
+    
     const plausible = window.plausible || function() {
         window.plausible = window.plausible || { q: [] };
         try {
@@ -16,6 +17,17 @@ window.addEventListener('load', function () {
 
 
     const queryForm = document.getElementById('queryForm')
+    let countdownInterval = null
+    
+    // Clear results when CID field value changes
+    const cidInput = document.getElementById('cid')
+    if (cidInput) {
+        cidInput.addEventListener('change', function() {
+            showOutput('') // clear out previous results
+            showRawOutput('') // clear out previous results
+        })
+    }
+    
     queryForm.addEventListener('submit', async function (e) {
         e.preventDefault() // dont do a browser form post
 
@@ -25,6 +37,10 @@ window.addEventListener('load', function () {
         const formData = new FormData(queryForm)
         const backendURL = getBackendUrl(formData)
         const inputMaddr = formData.get('multiaddr')
+        
+        // Start countdown timer
+        const timeoutSeconds = parseInt(formData.get('timeoutSeconds'))
+        startCountdown(timeoutSeconds)
 
         plausible('IPFS Check Run', {
             props: {
@@ -56,9 +72,46 @@ window.addEventListener('load', function () {
           console.log(e)
           showOutput(`⚠️ backend error: ${e}`)
         } finally {
+          stopCountdown()
           toggleSubmitButton()
         }
     })
+    
+    function startCountdown(seconds) {
+        // Clear any existing countdown
+        stopCountdown()
+        
+        const buttonText = document.getElementById('button-text')
+        let remaining = seconds
+        
+        // Update button text immediately
+        if (buttonText) {
+            buttonText.textContent = `Testing: ${remaining}s`
+        }
+        
+        // Update every second
+        countdownInterval = setInterval(() => {
+            remaining--
+            if (remaining <= 0) {
+                stopCountdown()
+            } else if (buttonText) {
+                buttonText.textContent = `Testing: ${remaining}s`
+            }
+        }, 1000)
+    }
+    
+    function stopCountdown() {
+        if (countdownInterval) {
+            clearInterval(countdownInterval)
+            countdownInterval = null
+        }
+        
+        // Restore original button text
+        const buttonText = document.getElementById('button-text')
+        if (buttonText) {
+            buttonText.textContent = 'Run Test'
+        }
+    }
 })
 
 function initFormValues (url) {
@@ -98,6 +151,16 @@ function getBackendUrl (formData) {
 function showOutput (output) {
     const outObj = document.getElementById('output')
     outObj.innerHTML = output
+    
+    // Show/hide raw output details based on whether there's output
+    const rawOutputDetails = document.querySelector('details:has(#raw-output)')
+    if (rawOutputDetails) {
+        if (output && output.trim()) {
+            rawOutputDetails.style.display = 'block'
+        } else {
+            rawOutputDetails.style.display = 'none'
+        }
+    }
 }
 
 function showRawOutput (output) {
@@ -292,12 +355,33 @@ function formatJustCidOutput (resp) {
  * ----------------------------------------------------------------------------------------------------------
  */
 if (window.self !== window.top) {
+  // Hide header, description, help sections, and footer when in iframe to save space
+  const header = document.getElementById('app-header');
+  if (header) {
+    header.style.display = 'none';
+  }
+  const description = document.getElementById('app-description');
+  if (description) {
+    description.style.display = 'none';
+  }
+  const help = document.getElementById('app-help');
+  if (help) {
+    help.style.display = 'none';
+  }
+  const footer = document.getElementById('app-footer');
+  if (footer) {
+    footer.style.display = 'none';
+  }
+  
   let rafId = null;
   let lastH = -1;
 
-  const sentinel = document.getElementById('__iframe_sentinel');
-
   function measuredHeight() {
+    const sentinel = document.getElementById('__iframe_sentinel');
+    if (!sentinel) {
+      // Fallback to document height if sentinel is missing
+      return document.documentElement.getBoundingClientRect().height;
+    }
     const rect = sentinel.getBoundingClientRect();
     const bottom = rect.bottom + window.scrollY; // page Y of sentinel bottom
     const documentElHeight = document.documentElement.getBoundingClientRect().height
@@ -311,7 +395,12 @@ if (window.self !== window.top) {
       const h = measuredHeight();
       if (h !== lastH) {
         lastH = h;
-        parent.postMessage({ type: 'iframe-size:report', width: document.documentElement.scrollWidth, height: h, scrollHeight: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth }, '*');
+        try {
+          parent.postMessage({ type: 'iframe-size:report', width: document.documentElement.scrollWidth, height: h, scrollHeight: document.documentElement.scrollHeight, scrollWidth: document.documentElement.scrollWidth }, '*');
+        } catch (error) {
+          // Silently fail - iframe might be sandboxed or parent might not exist
+          console.debug('Failed to post size to parent:', error);
+        }
       }
     });
   }
