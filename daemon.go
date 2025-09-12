@@ -13,15 +13,11 @@ import (
 	"github.com/ipfs/boxo/bitswap/message/pb"
 	"github.com/ipfs/boxo/bitswap/network"
 	"github.com/ipfs/boxo/bitswap/network/httpnet"
-	"github.com/ipfs/boxo/ipns"
 	"github.com/ipfs/boxo/routing/http/client"
 	"github.com/ipfs/boxo/routing/http/contentrouter"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
@@ -83,23 +79,8 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	var d kademlia
-	if acceleratedDHT {
-		d, err = fullrt.NewFullRT(h, "/ipfs",
-			fullrt.DHTOption(
-				dht.BucketSize(20),
-				dht.Validator(record.NamespacedValidator{
-					"pk":   record.PublicKeyValidator{},
-					"ipns": ipns.Validator{},
-				}),
-				dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...),
-				dht.Mode(dht.ModeClient),
-			))
-
-	} else {
-		d, err = dht.New(ctx, h, dht.Mode(dht.ModeClient), dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))
-	}
-
+	// Setup DHT (standard or bundled with accelerated)
+	d, err := setupDHT(ctx, h, acceleratedDHT)
 	if err != nil {
 		return nil, err
 	}
@@ -123,19 +104,6 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 				libp2p.UserAgent(userAgent),
 			)
 		}}, nil
-}
-
-func (d *daemon) mustStart() {
-	// Wait for the DHT to be ready
-	if frt, ok := d.dht.(*fullrt.FullRT); ok {
-		if !frt.Ready() {
-			log.Printf("Please wait, initializing accelerated-dht client.. (mapping Amino DHT takes 5 mins or more)")
-		}
-		for !frt.Ready() {
-			time.Sleep(time.Second * 1)
-		}
-		log.Printf("Accelerated DHT client is ready")
-	}
 }
 
 type cidCheckOutput *[]providerOutput

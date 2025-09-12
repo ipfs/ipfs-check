@@ -86,8 +86,6 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 	log.Printf("Libp2p host peer id %s\n", d.h.ID())
 	log.Printf("Libp2p host listening on %v\n", d.h.Addrs())
 
-	d.mustStart()
-
 	log.Printf("Backend ready and listening on %v\n", l.Addr())
 
 	webAddr := getWebAddress(l)
@@ -211,9 +209,13 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 	// Serve frontend on /web
 	fileServer := http.FileServer(http.FS(webFS))
 	http.Handle("/web/", fileServer)
-	// Set up the root route to redirect to /web
+	// Set up the root route to redirect to /web/ with preserved query parameters
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/web", http.StatusFound)
+		target := "/web/"
+		if r.URL.RawQuery != "" {
+			target = target + "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusFound)
 	})
 
 	done := make(chan error, 1)
