@@ -269,7 +269,13 @@ function formatJustCidOutput (resp) {
         outHtml += `</div>`
         if (hasBitswap) {
             outHtml += `<div class='flex items-center text-sm mb-1'>${couldConnect ? iconCheck : iconCross}<span>Libp2p connected: <span class='font-mono'>${couldConnect ? 'Yes' : provider.ConnectionError.replaceAll('\n', '<br>')}</span></span></div>`
-            outHtml += couldConnect ? `<div class='flex items-center text-sm mb-1 ml-6'>${provider.DataAvailableOverBitswap.Found ? iconCheck : iconCross}<span>Bitswap Check: <span class='font-mono'>${provider.DataAvailableOverBitswap.Found ? 'Found' : 'Not found'}</span> ${provider.DataAvailableOverBitswap.Error || ''}</span></div>` : ''
+            if (couldConnect) {
+                if (provider.AgentVersion) {
+                    outHtml += `<div class='flex items-center text-sm mb-1 ml-6'>${iconCheck}<span>Agent Version: <span class='font-mono'>${provider.AgentVersion}</span></span></div>`
+                }
+                const foundText = provider.DataAvailableOverBitswap.Found ? 'Found' : 'Not found'
+                outHtml += `<div class='flex items-center text-sm mb-1 ml-6'>${provider.DataAvailableOverBitswap.Found ? iconCheck : iconCross}<span>Bitswap Check: <span class='font-mono'>${foundText}</span> ${provider.DataAvailableOverBitswap.Error || ''}</span></div>`
+            }
         }
         if (hasHTTP) {
             const httpRes = provider.DataAvailableOverHTTP

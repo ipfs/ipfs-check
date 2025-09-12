@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -53,9 +54,35 @@ const (
 
 	ipniSource = "IPNI"
 	dhtSource  = "Amino DHT"
+
+	// maximum length for agent version string
+	maxAgentVersionLen = 64
 )
 
 var defaultProtocolFilter = []string{"transport-bitswap", "unknown"}
+
+// Regex to match only ASCII printable characters (space through tilde)
+// This ensures we only keep safe, printable ASCII chars
+var asciiPrintable = regexp.MustCompile(`[^\x20-\x7E]`)
+
+// sanitizeAgentVersion removes non-printable characters and limits length.
+// The Go json.Marshal will handle proper escaping of quotes, backslashes, etc.
+func sanitizeAgentVersion(version string) string {
+	// Replace non-ASCII and non-printable characters with underscore
+	// This removes control characters, non-ASCII, etc.
+	ascii := asciiPrintable.ReplaceAllString(version, "_")
+
+	// Trim whitespace
+	ascii = strings.TrimSpace(ascii)
+
+	// Limit to maximum length (count runes for proper UTF-8 handling)
+	runes := []rune(ascii)
+	if len(runes) > maxAgentVersionLen {
+		ascii = string(runes[:maxAgentVersionLen])
+	}
+
+	return ascii
+}
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
@@ -148,6 +175,7 @@ type providerOutput struct {
 	DataAvailableOverBitswap BitswapCheckOutput
 	DataAvailableOverHTTP    HTTPCheckOutput
 	Source                   string
+	AgentVersion             string
 }
 
 // runCidCheck finds providers of a given CID, using the DHT and IPNI
@@ -313,6 +341,12 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 			if connErr != nil {
 				provOutput.ConnectionError = formatConnectionError(connErr, provider.Addrs)
 			} else {
+				// Retrieve AgentVersion from peerstore after successful connection
+				if agent, err := testHost.Peerstore().Get(provider.ID, "AgentVersion"); err == nil {
+					if agentStr, ok := agent.(string); ok {
+						provOutput.AgentVersion = sanitizeAgentVersion(agentStr)
+					}
+				}
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
 				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cidKey, p2pAddr)
