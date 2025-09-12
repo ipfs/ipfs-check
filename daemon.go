@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -54,35 +53,9 @@ const (
 
 	ipniSource = "IPNI"
 	dhtSource  = "Amino DHT"
-
-	// maximum length for agent version string
-	maxAgentVersionLen = 64
 )
 
 var defaultProtocolFilter = []string{"transport-bitswap", "unknown"}
-
-// Regex to match only ASCII printable characters (space through tilde)
-// This ensures we only keep safe, printable ASCII chars
-var asciiPrintable = regexp.MustCompile(`[^\x20-\x7E]`)
-
-// sanitizeAgentVersion removes non-printable characters and limits length.
-// The Go json.Marshal will handle proper escaping of quotes, backslashes, etc.
-func sanitizeAgentVersion(version string) string {
-	// Replace non-ASCII and non-printable characters with underscore
-	// This removes control characters, non-ASCII, etc.
-	ascii := asciiPrintable.ReplaceAllString(version, "_")
-
-	// Trim whitespace
-	ascii = strings.TrimSpace(ascii)
-
-	// Limit to maximum length (count runes for proper UTF-8 handling)
-	runes := []rune(ascii)
-	if len(runes) > maxAgentVersionLen {
-		ascii = string(runes[:maxAgentVersionLen])
-	}
-
-	return ascii
-}
 
 func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	rm, err := NewResourceManager()
