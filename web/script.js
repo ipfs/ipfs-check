@@ -17,6 +17,11 @@ window.addEventListener('load', function () {
 
 
     const queryForm = document.getElementById('queryForm')
+    if (!queryForm) {
+        console.error('Query form not found')
+        return
+    }
+    
     let countdownInterval = null
     
     // Clear results when CID field value changes
@@ -39,12 +44,12 @@ window.addEventListener('load', function () {
         const inputMaddr = formData.get('multiaddr')
         
         // Start countdown timer
-        const timeoutSeconds = parseInt(formData.get('timeoutSeconds'))
+        const timeoutSeconds = parseInt(formData.get('timeoutSeconds')) || 30
         startCountdown(timeoutSeconds)
 
         plausible('IPFS Check Run', {
             props: {
-                withMultiaddr: inputMaddr != ''
+                withMultiaddr: inputMaddr !== ''
             },
         })
 
@@ -57,7 +62,7 @@ window.addEventListener('load', function () {
               const respObj = await res.json()
               showRawOutput(JSON.stringify(respObj, null, 2))
 
-              if(inputMaddr == '') {
+              if(inputMaddr === '') {
                 const output = formatJustCidOutput(respObj)
                 showOutput(output)
               } else {
@@ -122,18 +127,21 @@ function initFormValues (url) {
     const timeoutSlider = document.getElementById('timeoutSeconds')
     const timeoutValue = document.getElementById('timeoutValue')
 
-    timeoutSlider.addEventListener('input', function() {
-      timeoutValue.textContent = this.value
-    })
-    // set initial value
-    timeoutValue.textContent = timeoutSlider.value
+    if (timeoutSlider && timeoutValue) {
+        timeoutSlider.addEventListener('input', function() {
+            timeoutValue.textContent = this.value
+        })
+        // set initial value
+        timeoutValue.textContent = timeoutSlider.value
+    }
 }
 
 function showInQuery (formData) {
-    const defaultBackendUrl = document.getElementById('backendURL').getAttribute('placeholder')
+    const backendURLElement = document.getElementById('backendURL')
+    const defaultBackendUrl = backendURLElement ? backendURLElement.getAttribute('placeholder') : null
     const params = new URLSearchParams(formData)
     // skip showing default value our shareable url
-    if (params.get('backendURL') === defaultBackendUrl) {
+    if (defaultBackendUrl && params.get('backendURL') === defaultBackendUrl) {
         params.delete('backendURL')
     }
     const url = new URL('?' + params, window.location)
@@ -145,11 +153,21 @@ function getBackendUrl (formData) {
     // dont send backendURL to the backend!
     params.delete('backendURL')
     // backendURL is the base, params are appended as query string
-    return new URL('/check?' + params, formData.get('backendURL'))
+    try {
+        return new URL('/check?' + params, formData.get('backendURL'))
+    } catch (e) {
+        console.error('Invalid backend URL:', e)
+        // Fallback to current origin
+        return new URL('/check?' + params, window.location.origin)
+    }
 }
 
 function showOutput (output) {
     const outObj = document.getElementById('output')
+    if (!outObj) {
+        console.error('Output element not found')
+        return
+    }
     outObj.innerHTML = output
     
     // Show/hide raw output details based on whether there's output
@@ -165,15 +183,23 @@ function showOutput (output) {
 
 function showRawOutput (output) {
     const outObj = document.getElementById('raw-output')
+    if (!outObj) {
+        console.error('Raw output element not found')
+        return
+    }
     outObj.textContent = output
 }
 
 function toggleSubmitButton() {
     const button = document.getElementById('submit')
-    button.toggleAttribute('disabled')
+    if (button) {
+        button.toggleAttribute('disabled')
+    }
     const spinner = document.getElementById('loading-spinner')
-    // Toggle spinner visibility
-    spinner.classList.toggle('hidden')
+    if (spinner) {
+        // Toggle spinner visibility
+        spinner.classList.toggle('hidden')
+    }
 }
 
 function formatMaddrOutput (multiaddr, respObj) {
@@ -355,24 +381,6 @@ function formatJustCidOutput (resp) {
  * ----------------------------------------------------------------------------------------------------------
  */
 if (window.self !== window.top) {
-  // Hide header, description, help sections, and footer when in iframe to save space
-  const header = document.getElementById('app-header');
-  if (header) {
-    header.style.display = 'none';
-  }
-  const description = document.getElementById('app-description');
-  if (description) {
-    description.style.display = 'none';
-  }
-  const help = document.getElementById('app-help');
-  if (help) {
-    help.style.display = 'none';
-  }
-  const footer = document.getElementById('app-footer');
-  if (footer) {
-    footer.style.display = 'none';
-  }
-  
   let rafId = null;
   let lastH = -1;
 
@@ -412,7 +420,19 @@ if (window.self !== window.top) {
   document.addEventListener('transitionend', postSize);
   document.fonts?.addEventListener?.('loadingdone', postSize);
 
-  new ResizeObserver(postSize).observe(document.body);
-  new MutationObserver(postSize)
-    .observe(document.body, { childList: true, subtree: true });
+  // Store observers for cleanup
+  const resizeObserver = new ResizeObserver(postSize);
+  const mutationObserver = new MutationObserver(postSize);
+  
+  resizeObserver.observe(document.body);
+  mutationObserver.observe(document.body, { childList: true, subtree: true });
+  
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    resizeObserver.disconnect();
+    mutationObserver.disconnect();
+    if (rafId != null) {
+      cancelAnimationFrame(rafId);
+    }
+  });
 }
