@@ -13,15 +13,11 @@ import (
 	"github.com/ipfs/boxo/bitswap/message/pb"
 	"github.com/ipfs/boxo/bitswap/network"
 	"github.com/ipfs/boxo/bitswap/network/httpnet"
-	"github.com/ipfs/boxo/ipns"
 	"github.com/ipfs/boxo/routing/http/client"
 	"github.com/ipfs/boxo/routing/http/contentrouter"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p-kad-dht/fullrt"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	record "github.com/libp2p/go-libp2p-record"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
@@ -83,23 +79,8 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
-	var d kademlia
-	if acceleratedDHT {
-		d, err = fullrt.NewFullRT(h, "/ipfs",
-			fullrt.DHTOption(
-				dht.BucketSize(20),
-				dht.Validator(record.NamespacedValidator{
-					"pk":   record.PublicKeyValidator{},
-					"ipns": ipns.Validator{},
-				}),
-				dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...),
-				dht.Mode(dht.ModeClient),
-			))
-
-	} else {
-		d, err = dht.New(ctx, h, dht.Mode(dht.ModeClient), dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))
-	}
-
+	// Setup DHT (standard or bundled with accelerated)
+	d, err := setupDHT(ctx, h, acceleratedDHT)
 	if err != nil {
 		return nil, err
 	}
@@ -125,19 +106,6 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		}}, nil
 }
 
-func (d *daemon) mustStart() {
-	// Wait for the DHT to be ready
-	if frt, ok := d.dht.(*fullrt.FullRT); ok {
-		if !frt.Ready() {
-			log.Printf("Please wait, initializing accelerated-dht client.. (mapping Amino DHT takes 5 mins or more)")
-		}
-		for !frt.Ready() {
-			time.Sleep(time.Second * 1)
-		}
-		log.Printf("Accelerated DHT client is ready")
-	}
-}
-
 type cidCheckOutput *[]providerOutput
 
 type providerOutput struct {
@@ -148,6 +116,7 @@ type providerOutput struct {
 	DataAvailableOverBitswap BitswapCheckOutput
 	DataAvailableOverHTTP    HTTPCheckOutput
 	Source                   string
+	AgentVersion             string
 }
 
 // runCidCheck finds providers of a given CID, using the DHT and IPNI
@@ -313,6 +282,12 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 			if connErr != nil {
 				provOutput.ConnectionError = formatConnectionError(connErr, provider.Addrs)
 			} else {
+				// Retrieve AgentVersion from peerstore after successful connection
+				if agent, err := testHost.Peerstore().Get(provider.ID, "AgentVersion"); err == nil {
+					if agentStr, ok := agent.(string); ok {
+						provOutput.AgentVersion = sanitizeAgentVersion(agentStr)
+					}
+				}
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
 				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cidKey, p2pAddr)

@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/* Montserrat Font
+ * Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
+ * Licensed under the SIL Open Font License, Version 1.1
+ * License: https://openfontlicense.org
+ */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./fonts/Montserrat-Light-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Inter Font
+ * Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+ * Licensed under the SIL Open Font License, Version 1.1
+ * License: https://openfontlicense.org
+ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/Inter-Regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @theme {
   --color-dark-blue-600: #0D1644;
   --color-ipfs-navy-900: #0b3a53;
@@ -21,4 +49,42 @@
   --color-ipfs-green-400: #0aca9f;
   --color-ipfs-link-500: #117eb3;
   --color-ipfs-washed-blue-500: #F0F6FA
+}
+
+/* Default link styling */
+a {
+  color: var(--color-ipfs-link-500);
+  text-decoration: underline;
+  transition: opacity 0.15s ease-in;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+/* Hide header when in iframe (prevents flash on load) */
+.in-iframe #app-header {
+  display: none;
+}
+
+/* Montserrat font class (previously from ipfs-css) */
+.montserrat {
+  font-family: 'Montserrat', 'Verdana', system-ui, sans-serif;
+}
+
+/* Inter font class */
+.inter {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+/*
+This is placed at the bottom of the HTML, invisible, and used when ipfs-check is
+embedded in an iframe to help get the height of the iframe content.
+*/
+#__iframe_sentinel {
+  display: block;
+  height: 0;             /* no visual height */
+  clear: both;           /* accounts for floats above */
+  pointer-events: none;
+  visibility: hidden;
 }
