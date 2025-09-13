@@ -183,10 +183,14 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 			}
 			source = ipniSource
 		}
+
+		// Protect providersCount with mutex to avoid race condition
+		mu.Lock()
 		providersCount++
 		if providersCount == maxProvidersCount {
 			done = true
 		}
+		mu.Unlock()
 
 		wg.Add(1)
 		go func(provider peer.AddrInfo, src string) {
