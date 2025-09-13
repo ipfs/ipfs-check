@@ -148,6 +148,7 @@ type providerOutput struct {
 	DataAvailableOverBitswap BitswapCheckOutput
 	DataAvailableOverHTTP    HTTPCheckOutput
 	Source                   string
+	AgentVersion             string
 }
 
 // runCidCheck finds providers of a given CID, using the DHT and IPNI
@@ -313,6 +314,12 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 			if connErr != nil {
 				provOutput.ConnectionError = formatConnectionError(connErr, provider.Addrs)
 			} else {
+				// Retrieve AgentVersion from peerstore after successful connection
+				if agent, err := testHost.Peerstore().Get(provider.ID, "AgentVersion"); err == nil {
+					if agentStr, ok := agent.(string); ok {
+						provOutput.AgentVersion = sanitizeAgentVersion(agentStr)
+					}
+				}
 				// since we pass a libp2p host that's already connected to the peer the actual connection maddr we pass in doesn't matter
 				p2pAddr, _ := multiaddr.NewMultiaddr("/p2p/" + provider.ID.String())
 				provOutput.DataAvailableOverBitswap = checkBitswapCID(ctx, testHost, cidKey, p2pAddr)
