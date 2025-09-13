@@ -164,6 +164,10 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 		var source string
 
 		select {
+		case <-ctx.Done():
+			// Respect the timeout from the URL/context
+			done = true
+			continue
 		case provider, open = <-dhtProvsCh:
 			if !open {
 				dhtProvsCh = nil
