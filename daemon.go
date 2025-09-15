@@ -164,6 +164,10 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 		var source string
 
 		select {
+		case <-ctx.Done():
+			// Respect the timeout from the URL/context
+			done = true
+			continue
 		case provider, open = <-dhtProvsCh:
 			if !open {
 				dhtProvsCh = nil
@@ -183,10 +187,14 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 			}
 			source = ipniSource
 		}
+
+		// Protect providersCount with mutex to avoid race condition
+		mu.Lock()
 		providersCount++
 		if providersCount == maxProvidersCount {
 			done = true
 		}
+		mu.Unlock()
 
 		wg.Add(1)
 		go func(provider peer.AddrInfo, src string) {
