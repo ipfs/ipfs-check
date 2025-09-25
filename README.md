@@ -39,12 +39,19 @@ Learn available variables via `./ipfs-check --help`
 
 ### Frontend
 
-There are web assets in `web` that interact with the Go HTTP server that can be deployed however you deploy web assets.
-Maybe just deploy it on IPFS and reference it with DNSLink.
+The web assets in `./web` directory are embedded directly into the Go binary and served as-is. No build step is required for deployment - the pre-built CSS and static files are already committed to the repository.
 
-For anything other than local testing you're going to want to have a proxy to give you HTTPS support on the Go server.
+The latest version from the `main` branch is automatically deployed to https://check.ipfs.network for convenience.
 
-At a minimum, the following files should be available from your web-server on prod: `web/index.html`, `web/tachyons.min.css`.
+If you need to modify the web interface styles:
+1. Make changes to `web/input.css`
+2. Run `npm ci` and `npm run build` in the `web` directory (see `web/README.md` for details)
+3. Commit the updated `web/output.css` file
+
+> [!IMPORTANT]
+> Breaking changes to the HTTP API or frontend MUST be avoided. The new `./web` should always work with old backend versions to ensure compatibility.
+
+For production deployments, you'll want a proxy for HTTPS support on the Go server.
 
 
 ## Running locally
