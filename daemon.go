@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	vole "github.com/ipfs-shipyard/vole/lib"
 	bsmsg "github.com/ipfs/boxo/bitswap/message"
 	"github.com/ipfs/boxo/bitswap/message/pb"
 	"github.com/ipfs/boxo/bitswap/network"
@@ -16,6 +15,7 @@ import (
 	"github.com/ipfs/boxo/routing/http/client"
 	"github.com/ipfs/boxo/routing/http/contentrouter"
 	"github.com/ipfs/go-cid"
+	vole "github.com/ipshipyard/vole/lib"
 	"github.com/libp2p/go-libp2p"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -456,7 +456,7 @@ func checkBitswapCID(ctx context.Context, host host.Host, c cid.Cid, ma multiadd
 	}
 	start := time.Now()
 
-	bsOut, err := vole.CheckBitswapCID(ctx, host, c, ma, false)
+	bsOut, err := vole.CheckBitswapCID(ctx, host, c, ma, true)
 	if err != nil {
 		out.Error = err.Error()
 	} else {
@@ -550,24 +550,24 @@ func checkHTTPRetrieval(ctx context.Context, host host.Host, c cid.Cid, pinfo pe
 		return out
 	}
 
-	// Now we are in a position of sending a HEAD request.
+	// Now we are in a position of sending a GET request.
 	msg := bsmsg.New(true)
-	msg.AddEntry(c, 0, pb.Message_Wantlist_Have, true)
+	msg.AddEntry(c, 0, pb.Message_Wantlist_Block, true)
 	start := time.Now()
 	err = htnet.SendMessage(ctx, pid, msg)
 	out.Requested = true
 	if err != nil {
-		log.Printf("End of HTTP check for %s at . Connected: true. Error: %s", c, err)
+		log.Printf("End of HTTP check for %s at %s. Connected: true. Error: %s", c, pinfo, err)
 		out.Error = err.Error()
 		return out
 	}
 
-	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	waitCtx, cancel := context.WithTimeout(ctx, httpnet.DefaultResponseHeaderTimeout)
 	defer cancel()
 	select {
 	case <-waitCtx.Done():
 	case msg := <-recv.msgCh:
-		if len(msg.Haves()) > 0 {
+		if len(msg.Blocks()) > 0 {
 			out.Found = true
 		}
 
