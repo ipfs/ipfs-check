@@ -18,7 +18,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multihash"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -298,17 +297,6 @@ func getWebAddress(l net.Listener) string {
 	}
 }
 
-// tryDecodeMultihash attempts to decode input as a multihash in base58 or hex format.
-func tryDecodeMultihash(input string) (cid.Cid, bool) {
-	if mh, err := multihash.FromB58String(input); err == nil {
-		return cid.NewCidV1(cid.Raw, mh), true
-	}
-	if mh, err := multihash.FromHexString(input); err == nil {
-		return cid.NewCidV1(cid.Raw, mh), true
-	}
-	return cid.Cid{}, false
-}
-
 // buildDiagnosticURL returns the appropriate diagnostic URL for a given IPNS name or DNSLink.
 func buildDiagnosticURL(name string) string {
 	if strings.Contains(name, ".") {
@@ -317,7 +305,7 @@ func buildDiagnosticURL(name string) string {
 	return "https://ipns.ipfs.network/#" + name
 }
 
-// resolveInput attempts to parse input as a CID (with multihash fallback),
+// resolveInput attempts to parse input as a CID,
 // and if that fails, tries to resolve it as an IPNS name or DNSLink.
 // Returns the resolved CID and optional resolution info.
 func resolveInput(ctx context.Context, ns namesys.NameSystem, input string) (cid.Cid, *MutableResolution, error) {
@@ -338,11 +326,6 @@ func resolveInput(ctx context.Context, ns namesys.NameSystem, input string) (cid
 	if _, err := peer.Decode(input); err == nil {
 		// Legacy PeerID - resolve as IPNS with warning
 		return resolveMutablePath(ctx, ns, "/ipns/"+input, true)
-	}
-
-	// Try multihash decode as fallback
-	if c, ok := tryDecodeMultihash(input); ok {
-		return c, nil, nil
 	}
 
 	// Must be DNSLink or IPNS path - resolve with warning
