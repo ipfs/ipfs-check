@@ -202,42 +202,96 @@ function toggleSubmitButton() {
     }
 }
 
+function formatMutableResolution(mutableRes) {
+    if (!mutableRes) return ''
+
+    // Extract domain from diagnostic URL for display (without hash)
+    let diagnosticSite = ''
+    if (mutableRes.DiagnosticURL) {
+        try {
+            const url = new URL(mutableRes.DiagnosticURL)
+            diagnosticSite = url.hostname
+        } catch (e) {
+            diagnosticSite = 'diagnostic tool'
+        }
+    }
+
+    let html = '<div class="mb-4">'
+
+    // Show warning if input is mutable or legacy format
+    if (mutableRes.IsMutableInput) {
+        html += `<div class="mb-3"><span class="text-lg font-bold">⚠️ Input is not an immutable CID, assuming mutable pointer</span></div>`
+    }
+
+    if (mutableRes.Error) {
+        // Resolution failed
+        html += `<span class="text-lg font-bold">${iconCross} Mutable pointer resolution failed</span>`
+        html += ` <span class="text-gray-600">for <code class="bg-gray-100 px-2 py-1 rounded text-sm">${mutableRes.InputPath || 'unknown'}</code></span>`
+        html += `<div class="mt-2 text-sm text-red-700">Error: <code class="bg-red-100 px-2 py-1 rounded">${mutableRes.Error}</code></div>`
+        if (mutableRes.DiagnosticURL) {
+            html += `<div class="mt-2 text-sm"><a href="${mutableRes.DiagnosticURL}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">More details at ${diagnosticSite}</a></div>`
+        }
+    } else {
+        // Resolution succeeded
+        html += `<span class="text-lg font-bold">${iconCheck} Mutable pointer resolved successfully</span>`
+        html += '</div>'
+        // Add details box similar to provider results
+        html += '<div class="rounded-lg shadow bg-white border-gray-200 p-4 border mb-4">'
+        html += '<div class="text-sm mb-2"><span class="font-bold">Input:</span> <span class="font-mono text-xs break-all">' + (mutableRes.InputPath || 'unknown') + '</span></div>'
+        html += '<div class="text-sm mb-2"><span class="font-bold">Resolved to:</span> <span class="font-mono text-xs break-all">' + (mutableRes.ResolvedPath || 'unknown') + '</span></div>'
+        if (mutableRes.DiagnosticURL) {
+            html += '<div class="text-sm mt-3"><a href="' + mutableRes.DiagnosticURL + '" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">More details at ' + diagnosticSite + '</a></div>'
+        }
+        html += '</div>'
+        html += '<div class="mb-4">'
+    }
+
+    html += '</div>'
+    return html
+}
+
 function formatMaddrOutput (multiaddr, respObj) {
     const peerIDStartIndex = multiaddr.lastIndexOf("/p2p/")
     const peerID = multiaddr.slice(peerIDStartIndex + 5);
     const addrPart = multiaddr.slice(0, peerIDStartIndex);
     let outHtml = `<div class='space-y-4'>`
 
+    // Show resolution info if present (at top level)
+    outHtml += formatMutableResolution(respObj.MutableResolution)
+
+    // Extract actual peer check result (might be wrapped)
+    const peerResult = respObj.Result || respObj
+
     // Connection status
-    if (respObj.ConnectionError !== "") {
-        outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-center'>${iconCross}<span>Could not connect to multiaddr: <span class='font-mono'>${respObj.ConnectionError}</span></span></div>`
+    if (peerResult.ConnectionError !== "") {
+        outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-center'>${iconCross}<span>Could not connect to multiaddr: <span class='font-mono'>${peerResult.ConnectionError}</span></span></div>`
     } else {
-        const madrs = respObj?.ConnectionMaddrs
+        const madrs = peerResult?.ConnectionMaddrs
         outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }:<br><span class='font-mono text-xs block ml-6'>${madrs.join('<br>')}</span></span></div>`
     }
 
     // DHT status
     if (multiaddr.indexOf("/p2p/") === 0 && multiaddr.lastIndexOf("/") === 4) {
         // only peer id passed with /p2p/PeerID
-        if (Object.keys(respObj.PeerFoundInDHT).length === 0) {
+        if (Object.keys(peerResult.PeerFoundInDHT).length === 0) {
             outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-center'>${iconCross}<span>Could not find any multiaddrs in the DHT</span></div>`
         } else {
-            outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Found multiaddrs advertised in the DHT:<br><span class='font-mono text-xs block ml-6'>${Object.keys(respObj.PeerFoundInDHT).join('<br>')}</span></span></div>`
+            outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Found multiaddrs advertised in the DHT:<br><span class='font-mono text-xs block ml-6'>${Object.keys(peerResult.PeerFoundInDHT).join('<br>')}</span></span></div>`
         }
     } else {
         // a proper maddr with an IP was passed
         let foundAddr = false
-        for (const key in respObj.PeerFoundInDHT) {
+        for (const key in peerResult.PeerFoundInDHT) {
             if (key === addrPart) {
                 foundAddr = true
-                outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Found multiaddr with <span class='font-bold'>${respObj.PeerFoundInDHT[key]}</span> DHT peers</span></div>`
+                outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Found multiaddr with <span class='font-bold'>${peerResult.PeerFoundInDHT[key]}</span> DHT peers</span></div>`
                 break
             }
         }
         if (!foundAddr) {
             let alt = ''
-            if (Object.keys(respObj.PeerFoundInDHT).length > 0) {
-              alt = `<br>Instead found:<br><span class='font-mono text-xs block ml-6 break-all'>${Object.keys(respObj.PeerFoundInDHT).join('<br>')}</span>`
+            if (Object.keys(peerResult.PeerFoundInDHT).length > 0) {
+              alt = `<br>Instead found:<br><span class='font-mono text-xs block ml-6 break-all'>${Object.keys(peerResult.PeerFoundInDHT).join('<br>')}</span>`
             } else {
               alt = '<br>No other addresses were found.'
             }
@@ -246,19 +300,19 @@ function formatMaddrOutput (multiaddr, respObj) {
     }
 
     // Provider record
-    if (respObj.ProviderRecordFromPeerInDHT === true || respObj.ProviderRecordFromPeerInIPNI === true) {
-        outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Found multihash advertised in <span class='font-bold'>${respObj.ProviderRecordFromPeerInDHT ? 'DHT' : 'IPNI'}</span></span></div>`
+    if (peerResult.ProviderRecordFromPeerInDHT === true || peerResult.ProviderRecordFromPeerInIPNI === true) {
+        outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Found multihash advertised in <span class='font-bold'>${peerResult.ProviderRecordFromPeerInDHT ? 'DHT' : 'IPNI'}</span></span></div>`
     } else {
         outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-center'>${iconCross}<span>Could not find the multihash in DHT or IPNI</span></div>`
     }
 
     // Bitswap
-    if (respObj.DataAvailableOverBitswap?.Enabled === true) {
-      if (respObj.DataAvailableOverBitswap?.Error !== "") {
-          outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>There was an error downloading the data for the CID from the peer via Bitswap: <span class='font-mono'>${respObj.DataAvailableOverBitswap.Error}</span></span></div>`
-      } else if (respObj.DataAvailableOverBitswap?.Responded !== true) {
+    if (peerResult.DataAvailableOverBitswap?.Enabled === true) {
+      if (peerResult.DataAvailableOverBitswap?.Error !== "") {
+          outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>There was an error downloading the data for the CID from the peer via Bitswap: <span class='font-mono'>${peerResult.DataAvailableOverBitswap.Error}</span></span></div>`
+      } else if (peerResult.DataAvailableOverBitswap?.Responded !== true) {
           outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>The peer did not quickly respond if it had the data for the CID over Bitswap</span></div>`
-      } else if (respObj.DataAvailableOverBitswap?.Found === true) {
+      } else if (peerResult.DataAvailableOverBitswap?.Found === true) {
           outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex items-center'>${iconCheck}<span>The peer responded that it has the data for the CID over Bitswap</span></div>`
       } else {
           outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>The peer responded that it does not have the data for the CID over Bitswap</span></div>`
@@ -266,14 +320,14 @@ function formatMaddrOutput (multiaddr, respObj) {
     }
 
     // HTTP
-    if (respObj.DataAvailableOverHTTP?.Enabled === true) {
-      if (respObj.DataAvailableOverHTTP?.Error !== "") {
-          outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>There was an error downloading the data for the CID via HTTP: <span class='font-mono'>${respObj.DataAvailableOverHTTP.Error}</span></span></div>`
+    if (peerResult.DataAvailableOverHTTP?.Enabled === true) {
+      if (peerResult.DataAvailableOverHTTP?.Error !== "") {
+          outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>There was an error downloading the data for the CID via HTTP: <span class='font-mono'>${peerResult.DataAvailableOverHTTP.Error}</span></span></div>`
       }
 
-      if (respObj.DataAvailableOverHTTP?.Connected !== true) {
+      if (peerResult.DataAvailableOverHTTP?.Connected !== true) {
           outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>HTTP connection was unsuccessful to the HTTP endpoint</span></div>`
-      } else if (respObj.DataAvailableOverHTTP?.Found === true) {
+      } else if (peerResult.DataAvailableOverHTTP?.Found === true) {
           outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex items-center'>${iconCheck}<span>The HTTP endpoint responded that it has the data for the CID</span></div>`
       } else {
           outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>The HTTP endpoint responded that it does not have the data for the CID</span></div>`
@@ -284,11 +338,25 @@ function formatMaddrOutput (multiaddr, respObj) {
 }
 
 function formatJustCidOutput (resp) {
-    if (resp.length === 0) {
-        return `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>No providers found for the given CID</span></div>`
+    let outHtml = ''
+
+    // Show resolution info if present (at top level)
+    if (resp.MutableResolution) {
+        outHtml += formatMutableResolution(resp.MutableResolution)
+        // Handle resolution-only response (resolution failed, no providers)
+        if (!resp.Providers) {
+            return outHtml
+        }
     }
 
-    const successfulProviders = resp.reduce((acc, provider) => {
+    // Extract providers array (might be at top level or under Providers key)
+    const providers = resp.Providers || resp
+
+    if (!Array.isArray(providers) || providers.length === 0) {
+        return outHtml + `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>No providers found for the given CID</span></div>`
+    }
+
+    const successfulProviders = providers.reduce((acc, provider) => {
         if(provider.ConnectionError === '' && (provider.DataAvailableOverBitswap?.Found === true || provider.DataAvailableOverHTTP?.Found === true)) {
             acc++
         }
@@ -296,7 +364,7 @@ function formatJustCidOutput (resp) {
     }, 0)
 
     // Show providers with the data first, followed by reachable providers, then by those with addresses
-    resp.sort((a, b) => {
+    providers.sort((a, b) => {
         const aHasData = a.DataAvailableOverBitswap?.Found || a.DataAvailableOverHTTP?.Found
         const bHasData = b.DataAvailableOverBitswap?.Found || b.DataAvailableOverHTTP?.Found
 
@@ -336,9 +404,9 @@ function formatJustCidOutput (resp) {
         return 0
     })
 
-    let outHtml = `<div class='mb-4'><span class='text-lg font-bold'>${successfulProviders > 0 ? iconCheck : iconCross} Found ${successfulProviders} working providers</span> <span class='text-gray-600'>(out of ${resp.length} provider records sampled from Amino DHT and IPNI) that could be connected to and had the CID available over Bitswap:</span></div>`
+    outHtml += `<div class='mb-4'><span class='text-lg font-bold'>${successfulProviders > 0 ? iconCheck : iconCross} Found ${successfulProviders} working providers</span> <span class='text-gray-600'>(out of ${providers.length} provider records sampled from Amino DHT and IPNI) that could be connected to and had the CID available over Bitswap:</span></div>`
     outHtml += `<div class='grid gap-4 grid-cols-1'>`
-    for (const provider of resp) {
+    for (const provider of providers) {
         const couldConnect = provider.ConnectionError === ''
         const hasBitswap = provider.DataAvailableOverBitswap?.Enabled === true
         const hasHTTP = provider.DataAvailableOverHTTP?.Enabled === true
