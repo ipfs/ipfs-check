@@ -4,14 +4,15 @@ go 1.24.6
 
 require (
 	github.com/gavv/httpexpect/v2 v2.16.0
-	github.com/ipfs/boxo v0.35.1
+	github.com/ipfs/boxo v0.35.2
 	github.com/ipfs/go-block-format v0.2.3
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-datastore v0.9.0
 	github.com/ipfs/go-ipld-format v0.6.3
-	github.com/ipshipyard/vole v0.0.0-20251030190237-1448fb4935ac
+	github.com/ipfs/go-log/v2 v2.9.0
+	github.com/ipshipyard/vole v0.0.0-20251119193332-6f29ae779216
 	github.com/libp2p/go-doh-resolver v0.5.0
-	github.com/libp2p/go-libp2p v0.43.0
+	github.com/libp2p/go-libp2p v0.45.0
 	github.com/libp2p/go-libp2p-kad-dht v0.35.1
 	github.com/libp2p/go-libp2p-record v0.3.1
 	github.com/libp2p/go-msgio v0.3.0
@@ -48,7 +49,7 @@ require (
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
 	github.com/gammazero/chanqueue v1.1.1 // indirect
-	github.com/gammazero/deque v1.1.0 // indirect
+	github.com/gammazero/deque v1.2.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
@@ -64,12 +65,11 @@ require (
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-cidutil v0.1.0 // indirect
-	github.com/ipfs/go-dsqueue v0.1.0 // indirect
+	github.com/ipfs/go-dsqueue v0.1.1 // indirect
 	github.com/ipfs/go-ipfs-pq v0.0.3 // indirect
 	github.com/ipfs/go-ipfs-redirects-file v0.1.2 // indirect
 	github.com/ipfs/go-ipld-cbor v0.2.1 // indirect
 	github.com/ipfs/go-ipld-legacy v0.2.2 // indirect
-	github.com/ipfs/go-log/v2 v2.8.2 // indirect
 	github.com/ipfs/go-metrics-interface v0.3.0 // indirect
 	github.com/ipfs/go-peertaskqueue v0.8.2 // indirect
 	github.com/ipfs/go-unixfsnode v1.10.2 // indirect
@@ -175,7 +175,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b // indirect
+	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect

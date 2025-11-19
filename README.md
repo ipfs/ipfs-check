@@ -83,6 +83,16 @@ npx -y serve -l 3000 web
 # Then open http://localhost:3000?backendURL=http://localhost:3333
 ```
 
+## Logging
+
+Logging verbosity can be controlled via environment variables from [go-log](https://github.com/ipfs/go-log/?tab=readme-ov-file#environment-variables).
+
+For example, to enable debug logs for specific subsystems:
+
+```console
+$ GOLOG_LOG_LEVEL=info,dht=debug,net/identify=debug ./ipfs-check
+```
+
 ## Running a check
 
 To run a check, make an http call with the `cid` and `multiaddr` query parameters:
