@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -16,7 +17,9 @@ import (
 	"github.com/ipfs/boxo/namesys"
 	"github.com/ipfs/boxo/path"
 	"github.com/ipfs/go-cid"
+	golog "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/gologshim"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -26,6 +29,14 @@ import (
 
 //go:embed web
 var webFS embed.FS
+
+func init() {
+	// Bridge slog-based libraries (like go-libp2p >= 0.45) back into go-log.
+	// This ensures go-libp2p logs are visible and can be adjusted at runtime.
+	// See: https://github.com/ipfs/go-log/releases/tag/v2.9.0
+	slog.SetDefault(slog.New(golog.SlogHandler()))
+	gologshim.SetDefaultHandler(golog.SlogHandler())
+}
 
 func main() {
 	app := cli.NewApp()
