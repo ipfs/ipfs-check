@@ -12,10 +12,13 @@ import (
 	"github.com/ipfs/boxo/bitswap/message/pb"
 	"github.com/ipfs/boxo/bitswap/network"
 	"github.com/ipfs/boxo/bitswap/network/httpnet"
+	"github.com/ipfs/boxo/gateway"
+	"github.com/ipfs/boxo/namesys"
 	"github.com/ipfs/boxo/routing/http/client"
 	"github.com/ipfs/boxo/routing/http/contentrouter"
 	"github.com/ipfs/go-cid"
 	vole "github.com/ipshipyard/vole/lib"
+	doh "github.com/libp2p/go-doh-resolver"
 	"github.com/libp2p/go-libp2p"
 	dhtpb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -37,6 +40,7 @@ type daemon struct {
 	h              host.Host
 	dht            kademlia
 	dhtMessenger   *dhtpb.ProtocolMessenger
+	ns             namesys.NameSystem
 	createTestHost func() (host.Host, error)
 	promRegistry   *prometheus.Registry
 	httpSkipVerify bool
@@ -90,10 +94,34 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 		return nil, err
 	}
 
+	// Create DNS resolver with delegated-ipfs.dev DoH endpoint to match IPFS Mainnet behavior.
+	// This endpoint is used by the Helia ecosystem in browsers and ensures consistent
+	// DNSLink resolution without requiring local DNS resolver configuration.
+	// DNS caching is disabled (doh.WithCacheDisabled) because this is a diagnostic tool
+	// that should always query current DNS state rather than serve potentially stale cached results.
+	dnsResolver, err := gateway.NewDNSResolver(
+		map[string]string{
+			".": "https://delegated-ipfs.dev/dns-query",
+		},
+		doh.WithCacheDisabled(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DNS resolver: %w", err)
+	}
+
+	// Create namesys without caching (no WithCache option) to ensure fresh IPNS resolution.
+	// Diagnostic tools should not cache IPNS records as users expect to see current network state
+	// when running checks, not cached data from previous resolutions.
+	ns, err := namesys.NewNameSystem(d, namesys.WithDNSResolver(dnsResolver))
+	if err != nil {
+		return nil, err
+	}
+
 	return &daemon{
 		h:            h,
 		dht:          d,
 		dhtMessenger: pm,
+		ns:           ns,
 		promRegistry: promRegistry,
 		createTestHost: func() (host.Host, error) {
 			// TODO: when behind NAT, this will fail to determine its own public addresses which will block it from running dctur and hole punching
@@ -104,6 +132,14 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 				libp2p.UserAgent(userAgent),
 			)
 		}}, nil
+}
+
+type MutableResolution struct {
+	InputPath      string `json:"InputPath,omitempty"`
+	ResolvedPath   string `json:"ResolvedPath,omitempty"`
+	DiagnosticURL  string `json:"DiagnosticURL,omitempty"`
+	Error          string `json:"Error,omitempty"`
+	IsMutableInput bool   `json:"IsMutableInput,omitempty"`
 }
 
 type cidCheckOutput *[]providerOutput

@@ -5,16 +5,19 @@ import (
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/ipfs/boxo/namesys"
+	"github.com/ipfs/boxo/path"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multihash"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -74,6 +77,7 @@ func main() {
 const (
 	defaultCheckTimeout = 60 * time.Second
 	defaultIndexerURL   = "https://cid.contact"
+	libp2pKeyCodec      = 0x72 // multicodec for libp2p-key (PeerID in CIDv1 format)
 )
 
 func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
@@ -107,21 +111,10 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 			http.Error(w, "missing 'cid' query parameter", http.StatusBadRequest)
 			return
 		}
-		cidKey, err := cid.Decode(cidStr)
-		if err != nil {
-			mh, mhErr := multihash.FromB58String(cidStr)
-			if mhErr != nil {
-				mh, mhErr = multihash.FromHexString(cidStr)
-				if mhErr != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
-				}
-			}
-			cidKey = cid.NewCidV1(cid.Raw, mh)
-		}
 
 		checkTimeout := defaultCheckTimeout
 		if timeoutStr != "" {
+			var err error
 			checkTimeout, err = time.ParseDuration(timeoutStr + "s")
 			if err != nil {
 				http.Error(w, "Invalid timeout value (in seconds)", http.StatusBadRequest)
@@ -137,20 +130,57 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 		withTimeout, cancel := context.WithTimeout(r.Context(), checkTimeout)
 		defer cancel()
 
+		// Resolve input (CID, IPNS name, or DNSLink)
+		cidKey, mutableRes, err := resolveInput(withTimeout, d.ns, cidStr)
+		if err != nil {
+			if mutableRes != nil && mutableRes.Error != "" {
+				// Resolution attempted but failed, return resolution info with error
+				w.Header().Add("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"MutableResolution": mutableRes,
+				})
+				return
+			}
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		var data interface{}
 		if maStr == "" {
-			data, err = d.runCidCheck(withTimeout, cidKey, ipniURL, httpRetrieval)
+			cidOutput, err := d.runCidCheck(withTimeout, cidKey, ipniURL, httpRetrieval)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// Wrap response with resolution info at top level
+			if mutableRes != nil {
+				data = map[string]interface{}{
+					"MutableResolution": mutableRes,
+					"Providers":         cidOutput,
+				}
+			} else {
+				data = cidOutput
+			}
 		} else {
 			ma, ai, err400 := parseMultiaddr(maStr)
 			if err400 != nil {
 				http.Error(w, err400.Error(), http.StatusBadRequest)
 				return
 			}
-			data, err = d.runPeerCheck(withTimeout, ma, ai, cidKey, ipniURL, httpRetrieval)
-		}
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			peerOutput, err := d.runPeerCheck(withTimeout, ma, ai, cidKey, ipniURL, httpRetrieval)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// Wrap response with resolution info at top level
+			if mutableRes != nil {
+				data = map[string]interface{}{
+					"MutableResolution": mutableRes,
+					"Result":            peerOutput,
+				}
+			} else {
+				data = peerOutput
+			}
 		}
 		w.Header().Add("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(data)
@@ -265,6 +295,101 @@ func getWebAddress(l net.Listener) string {
 	default:
 		return addr
 	}
+}
+
+// buildDiagnosticURL returns the appropriate diagnostic URL for a given IPNS name or DNSLink.
+func buildDiagnosticURL(name string) string {
+	if strings.Contains(name, ".") {
+		return "https://dnslink.dev/#" + name
+	}
+	return "https://ipns.ipfs.network/#" + name
+}
+
+// resolveInput attempts to parse input as a CID,
+// and if that fails, tries to resolve it as an IPNS name or DNSLink.
+// Returns the resolved CID and optional resolution info.
+func resolveInput(ctx context.Context, ns namesys.NameSystem, input string) (cid.Cid, *MutableResolution, error) {
+	// Strip ipfs:// prefix if present
+	input = strings.TrimPrefix(input, "ipfs://")
+
+	// Try to decode as CID
+	if c, err := cid.Decode(input); err == nil {
+		if c.Type() == libp2pKeyCodec {
+			// PeerID in CIDv1 format - resolve as IPNS
+			return resolveMutablePath(ctx, ns, "/ipns/"+input, true)
+		}
+		// Regular content CID - return immediately
+		return c, nil, nil
+	}
+
+	// Try to decode as legacy PeerID (base58btc multihash)
+	if _, err := peer.Decode(input); err == nil {
+		// Legacy PeerID - resolve as IPNS
+		return resolveMutablePath(ctx, ns, "/ipns/"+input, true)
+	}
+
+	// Must be DNSLink or IPNS path - resolve with warning
+	return resolveMutablePath(ctx, ns, input, true)
+}
+
+// resolveMutablePath resolves an IPNS or DNSLink path to a CID and returns resolution metadata.
+func resolveMutablePath(ctx context.Context, ns namesys.NameSystem, input string, isMutableInput bool) (cid.Cid, *MutableResolution, error) {
+	mutableRes := &MutableResolution{
+		IsMutableInput: isMutableInput,
+	}
+
+	// Normalize input to an IPNS path
+	var p path.Path
+	var err error
+
+	if strings.HasPrefix(input, "/ipns/") || strings.HasPrefix(input, "/ipfs/") {
+		mutableRes.InputPath = input
+		p, err = path.NewPath(input)
+	} else {
+		// Bare domain or IPNS name - prefix with /ipns/
+		mutableRes.InputPath = "/ipns/" + input
+		p, err = path.NewPath(mutableRes.InputPath)
+	}
+
+	if err != nil {
+		return cid.Cid{}, nil, fmt.Errorf("not a valid CID, IPNS name, or DNSLink: %w", err)
+	}
+
+	// If it's an /ipfs/ path, extract the CID directly
+	if !p.Mutable() {
+		segments := p.Segments()
+		c, err := cid.Decode(segments[1])
+		if err != nil {
+			return cid.Cid{}, nil, fmt.Errorf("invalid CID in path: %w", err)
+		}
+		return c, nil, nil
+	}
+
+	// Attempt IPNS/DNSLink resolution
+	result, err := ns.Resolve(ctx, p)
+	name := p.Segments()[1]
+
+	if err != nil {
+		mutableRes.Error = err.Error()
+		mutableRes.DiagnosticURL = buildDiagnosticURL(name)
+		return cid.Cid{}, mutableRes, fmt.Errorf("resolution failed: %w", err)
+	}
+
+	mutableRes.ResolvedPath = result.Path.String()
+	mutableRes.DiagnosticURL = buildDiagnosticURL(name)
+
+	// Extract CID from resolved path
+	segments := result.Path.Segments()
+	if len(segments) < 2 {
+		return cid.Cid{}, mutableRes, fmt.Errorf("resolved path has insufficient components: %s", result.Path.String())
+	}
+
+	c, err := cid.Decode(segments[1])
+	if err != nil {
+		return cid.Cid{}, mutableRes, fmt.Errorf("invalid CID in resolved path: %w", err)
+	}
+
+	return c, mutableRes, nil
 }
 
 func parseMultiaddr(maStr string) (multiaddr.Multiaddr, peer.AddrInfo, error) {
