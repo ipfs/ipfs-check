@@ -315,8 +315,8 @@ func resolveInput(ctx context.Context, ns namesys.NameSystem, input string) (cid
 	// Try to decode as CID
 	if c, err := cid.Decode(input); err == nil {
 		if c.Type() == libp2pKeyCodec {
-			// PeerID in CIDv1 format - resolve as IPNS without warning
-			return resolveMutablePath(ctx, ns, "/ipns/"+input, false)
+			// PeerID in CIDv1 format - resolve as IPNS
+			return resolveMutablePath(ctx, ns, "/ipns/"+input, true)
 		}
 		// Regular content CID - return immediately
 		return c, nil, nil
@@ -324,7 +324,7 @@ func resolveInput(ctx context.Context, ns namesys.NameSystem, input string) (cid
 
 	// Try to decode as legacy PeerID (base58btc multihash)
 	if _, err := peer.Decode(input); err == nil {
-		// Legacy PeerID - resolve as IPNS with warning
+		// Legacy PeerID - resolve as IPNS
 		return resolveMutablePath(ctx, ns, "/ipns/"+input, true)
 	}
 
