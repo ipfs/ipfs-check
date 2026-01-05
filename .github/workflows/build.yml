@@ -1,0 +1,41 @@
+# Build workflow - runs for both PRs and main branch pushes
+# This workflow packages the website without access to secrets
+# Static files from web/ directory are used as-is (no build step)
+# Artifacts are passed to the deploy workflow which has access to secrets
+
+name: Build
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  BUILD_PATH: 'web'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      # Upload artifact for deploy workflow
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-build-${{ github.run_id }}
+          path: ${{ env.BUILD_PATH }}
+          retention-days: 1
