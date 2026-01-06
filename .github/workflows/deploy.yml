@@ -55,13 +55,13 @@ jobs:
     if: github.event.workflow_run.head_branch == 'main'
     environment:
       name: 'cf-dnslink'
-      url: "https://check-ipfs-tech.ipns.inbrowser.link/"
+      url: "https://check-ipfs-network.ipns.inbrowser.link/"
     steps:
       - name: Update DNSLink
         uses: ipshipyard/dnslink-action@v1
         with:
           cid: ${{ needs.deploy-ipfs.outputs.cid }}
-          dnslink_domain: 'check-ipfs-tech.dnslinks.ipshipyard.tech'
+          dnslink_domain: 'check-ipfs-network.dnslinks.ipshipyard.tech'
           cf_zone_id: ${{ secrets.CF_DNS_ZONE_ID }}
           cf_auth_token: ${{ secrets.CF_DNS_AUTH_TOKEN }}
           github_token: ${{ github.token }}
