@@ -163,7 +163,7 @@ func TestBasicIntegration(t *testing.T) {
 			},
 			httpSkipVerify: true,
 		}
-		_ = startServer(ctx, d, ":1234", "", "")
+		_ = startServer(ctx, d, ":1234", "", "", nil)
 	}()
 
 	h, err := libp2p.New()
