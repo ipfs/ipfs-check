@@ -147,7 +147,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 			if mutableRes != nil && mutableRes.Error != "" {
 				// Resolution attempted but failed, return resolution info with error
 				w.Header().Add("Content-Type", "application/json")
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]any{
 					"MutableResolution": mutableRes,
 				})
 				return
@@ -156,7 +156,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 			return
 		}
 
-		var data interface{}
+		var data any
 		if maStr == "" {
 			cidOutput, err := d.runCidCheck(withTimeout, cidKey, ipniURL, httpRetrieval)
 			if err != nil {
@@ -165,7 +165,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 			}
 			// Wrap response with resolution info at top level
 			if mutableRes != nil {
-				data = map[string]interface{}{
+				data = map[string]any{
 					"MutableResolution": mutableRes,
 					"Providers":         cidOutput,
 				}
@@ -185,7 +185,7 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 			}
 			// Wrap response with resolution info at top level
 			if mutableRes != nil {
-				data = map[string]interface{}{
+				data = map[string]any{
 					"MutableResolution": mutableRes,
 					"Result":            peerOutput,
 				}

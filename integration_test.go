@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,8 +120,7 @@ func (h *httpRouting) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 }
 
 func TestBasicIntegration(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	testDHTPrefix := protocol.TestingID
 	testDHTID := protocol.TestingID + "/kad/1.0.0"
