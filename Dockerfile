@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Builder
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.25-bookworm AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.26-bookworm AS builder
 
 LABEL org.opencontainers.image.source=https://github.com/ipfs/ipfs-check
 LABEL org.opencontainers.image.documentation=https://github.com/ipfs/ipfs-check#docker
