@@ -31,7 +31,7 @@ jobs:
       name: 'ipfs-publish'
     steps:
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: website-build-${{ github.event.workflow_run.id }}
           path: ${{ env.BUILD_PATH }}
@@ -83,7 +83,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: website-build-${{ github.event.workflow_run.id }}
           path: website-build
@@ -91,10 +91,10 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: website-build
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
