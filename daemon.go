@@ -47,20 +47,15 @@ type daemon struct {
 }
 
 const (
-	// maxProvidersCount is the soft cap: once we have this many providers that
-	// resolved to at least one usable multiaddr (either inline in the provider
-	// record or via a FindPeer fallback), we stop dispatching new work.
-	// Provider records without any addresses do not count toward this cap, so
-	// stale records cannot starve the result set.
-	//
-	// 20 mirrors Kubo's `ipfs routing findprovs --num-providers` default.
+	// Soft cap on providers with at least one usable multiaddr. Stale
+	// (address-less) records do not consume a slot. Sized larger than the
+	// 10 that Kubo's bitswap requests per provider-search round, because
+	// ipfs-check probes once and cannot repeat the round as a long-lived
+	// bitswap session would.
 	maxProvidersCount = 20
 
-	// maxAttemptedProviders is the hard cap on how many provider records we
-	// will process per request. Bounds the worst-case fan-out when most
-	// records are stale (no addresses) and FindPeer enrichment also fails.
-	// 2x the soft cap leaves headroom for stale records without exploding the
-	// number of concurrent libp2p hosts the daemon has to spawn per request.
+	// Hard cap on processed records per request. Bounds fan-out when every
+	// record is stale.
 	maxAttemptedProviders = 2 * maxProvidersCount
 
 	ipniSource = "IPNI"
@@ -189,22 +184,17 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 	queryCtx, cancelQuery := context.WithCancel(ctx)
 	defer cancelQuery()
 
-	// Stream providers from both sources without an artificial cap (count=0).
-	// We control termination here based on results, not on a raw arrival count,
-	// so that stale provider records without addresses do not exhaust the
-	// budget before useful ones arrive.
+	// count=0 streams unbounded; we cap termination on results below so
+	// address-less records do not exhaust the budget.
 	dhtProvsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, 0)
 	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, 0)
 
 	out := make([]providerOutput, 0, maxAttemptedProviders)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	// dispatchedCount counts goroutines spawned (hard cap).
-	// withAddrsCount counts goroutines that resolved at least one usable
-	// address, either from the provider record or via the FindPeer fallback
-	// (soft cap). Only the soft cap is what users care about; without it, a
-	// burst of address-less stale records would cancel the lookup before any
-	// usable provider arrived.
+	// withAddrsCount feeds the soft cap; dispatchedCount feeds the hard cap.
+	// Counting only address-resolved providers against the soft cap prevents
+	// stale-record bursts from cancelling the lookup early.
 	var dispatchedCount, withAddrsCount int
 	var done bool
 
@@ -272,16 +262,17 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 	return &out, nil
 }
 
-// checkProvider resolves addresses for a single provider record (falling back
-// to a DHT FindPeer on the full request context when the record carries no
-// usable addresses) and then probes the provider over HTTP and/or Bitswap.
+// checkProvider probes a single provider over HTTP and/or Bitswap.
 //
-// FindPeer fallback runs in parallel across providers because each
-// checkProvider is invoked from its own goroutine in runCidCheck.
+// Each probe builds its own libp2p host. Sharing one host across the
+// request's goroutines is unsafe because vole.CheckBitswapCID installs a
+// bitswap stream handler via host.SetStreamHandler, which replaces any
+// prior handler; concurrent probes would then deliver responses to the
+// wrong receiver. httpnet has the same shape of issue with connection
+// notifiers, so the HTTP path also uses its own host.
 //
-// The second return value is false when an internal failure (currently:
-// inability to construct a libp2p host) prevents producing any meaningful
-// result; the caller should drop the provider rather than append a stub.
+// Returns false when a probe host cannot be constructed; the caller
+// should drop the provider rather than append a stub.
 func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider peer.AddrInfo, src string, httpRetrieval bool) (providerOutput, bool) {
 	provOutput := providerOutput{
 		ID:                       provider.ID.String(),
@@ -289,13 +280,6 @@ func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider pee
 		DataAvailableOverBitswap: BitswapCheckOutput{},
 		DataAvailableOverHTTP:    HTTPCheckOutput{},
 	}
-
-	testHost, err := d.createTestHost()
-	if err != nil {
-		log.Printf("Error creating test host: %v\n", err)
-		return provOutput, false
-	}
-	defer testHost.Close()
 
 	httpInfo, libp2pInfo := network.SplitHTTPAddrs(provider)
 	if len(httpInfo.Addrs) > 0 && httpRetrieval {
@@ -329,31 +313,56 @@ func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider pee
 	provider = libp2pInfo
 
 	outputAddrs := []string{}
-	if len(provider.Addrs) > 0 {
-		for _, addr := range provider.Addrs {
-			if manet.IsPublicAddr(addr) {
-				outputAddrs = append(outputAddrs, addr.String())
-			}
+	seen := map[string]struct{}{}
+	addPublicAddr := func(addr multiaddr.Multiaddr, alsoDial bool) {
+		if !manet.IsPublicAddr(addr) {
+			return
 		}
-	} else {
-		// Provider record had no addresses. Try the DHT for a fresh peer
-		// record on the full request context, so we keep enriching for as
-		// long as the user-supplied timeout allows.
+		s := addr.String()
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+		outputAddrs = append(outputAddrs, s)
+		if alsoDial {
+			provider.Addrs = append(provider.Addrs, addr)
+		}
+	}
+
+	// Record addresses: only the public ones surface in the output. Private
+	// entries remain in provider.Addrs for libp2p, which the gater rejects.
+	for _, addr := range provider.Addrs {
+		addPublicAddr(addr, false)
+	}
+
+	// FindPeer when the record had no public addrs. Full ctx: the user's
+	// timeout bounds the wait.
+	if len(outputAddrs) == 0 {
 		peerAddrs, err := d.dht.FindPeer(ctx, provider.ID)
 		if err == nil {
 			for _, addr := range peerAddrs.Addrs {
-				if manet.IsPublicAddr(addr) {
-					outputAddrs = append(outputAddrs, addr.String())
-					provider.Addrs = append(provider.Addrs, addr)
-				}
+				addPublicAddr(addr, true)
 			}
 		}
+	}
+
+	// Merge addrs the daemon's peerstore already holds from prior DHT
+	// lookups, identifies, and earlier probes. Mirrors Kubo's dialing.
+	for _, addr := range d.h.Peerstore().Addrs(provider.ID) {
+		addPublicAddr(addr, true)
 	}
 
 	provOutput.Addrs = append(provOutput.Addrs, outputAddrs...)
 	provOutput.DataAvailableOverBitswap.Enabled = true
 
-	dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*15)
+	testHost, err := d.createTestHost()
+	if err != nil {
+		log.Printf("Error creating test host: %v\n", err)
+		return provOutput, false
+	}
+	defer testHost.Close()
+
+	dialCtx, dialCancel := context.WithTimeout(ctx, time.Second*30)
 	defer dialCancel()
 
 	_ = testHost.Connect(dialCtx, provider)

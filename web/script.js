@@ -410,7 +410,7 @@ function formatJustCidOutput (resp) {
     // hint. This typically means the closest DHT peers held stale provider
     // records and the FindPeer fallback could not find the peer either, so
     // the network has nothing fresh to dial.
-    const allNoAddrs = providers.every(p => !p.Addrs || p.Addrs.length === 0)
+    const allNoAddrs = providers.length > 0 && providers.every(p => !p.Addrs || p.Addrs.length === 0)
     if (allNoAddrs) {
         outHtml += `<div class='bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded mb-4 flex gap-x-2 items-start'>${iconInfo}<span>None of the returned provider records contained a current multiaddr. The records are likely stale (providers re-advertised the CID long ago and have since gone offline or changed addresses), or the routing layer did not have fresh peer information. Try again later, ask the publisher to re-provide, or test against a different routing endpoint in <b>Backend Config</b>.</span></div>`
     }
