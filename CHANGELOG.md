@@ -15,6 +15,8 @@ The following emojis are used to highlight certain changes:
 
 ### Added
 
+- UI hint when every returned provider record lacks a current multiaddr, pointing at likely stale records and the option to switch routing endpoint in Backend Config. The hint is rendered from the existing response shape; no wire format changes.
+
 ### Changed
 
 - [boxo v0.39.0](https://github.com/ipfs/boxo/releases/tag/v0.39.0) (from v0.37.0)
@@ -22,6 +24,7 @@ The following emojis are used to highlight certain changes:
 - [go-libp2p-kad-dht v0.39.1](https://github.com/libp2p/go-libp2p-kad-dht/releases/tag/v0.39.1) (from v0.38.0)
 - bumped GitHub Actions to latest majors: `actions/checkout@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`, `docker/setup-qemu-action@v4`, `docker/setup-buildx-action@v4`, `docker/login-action@v4`, `docker/build-push-action@v7`
 - README rewritten for clarity: active voice, scannable headings, and simpler phrasing
+- CID-only provider lookup now mirrors Kubo's `ipfs routing findprovs --num-providers` default of 20 instead of stopping after 10 raw records. Records without any usable multiaddr no longer consume a result slot; the backend keeps draining DHT and IPNI until it has up to 20 providers with at least one address, capped at 40 attempts. `FindPeer` enrichment for address-less records runs in parallel across providers on the full request context (no artificially short per-call budget), so stale records have the best chance of being resolved within the user-supplied timeout.
 
 ### Removed
 
