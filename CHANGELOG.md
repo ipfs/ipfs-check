@@ -15,23 +15,34 @@ The following emojis are used to highlight certain changes:
 
 ### Added
 
-- ✨ A CID with provider records that all arrive without addresses no longer dead-ends as "0 working providers". The UI now surfaces a hint explaining that the records are likely stale and points at the Backend Config to try a different routing endpoint. The hint reads existing fields from the response, so the JSON wire format is unchanged.
-
 ### Changed
-
-- [boxo v0.39.0](https://github.com/ipfs/boxo/releases/tag/v0.39.0) (from v0.37.0)
-- [go-libp2p v0.48.0](https://github.com/libp2p/go-libp2p/releases/tag/v0.48.0) (from v0.47.0)
-- [go-libp2p-kad-dht v0.39.1](https://github.com/libp2p/go-libp2p-kad-dht/releases/tag/v0.39.1) (from v0.38.0)
-- bumped GitHub Actions to latest majors: `actions/checkout@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`, `docker/setup-qemu-action@v4`, `docker/setup-buildx-action@v4`, `docker/login-action@v4`, `docker/build-push-action@v7`
-- README rewritten for clarity: active voice, scannable headings, and simpler phrasing
-- ✨ CID-only checks now keep looking for usable providers instead of stopping after the first 10 records the routing layer returned. The backend drains DHT and IPNI streams until it has up to 20 providers that resolved at least one multiaddr, capped at 40 attempted records overall. Records without addresses no longer occupy a result slot, and `FindPeer` enrichment for those records runs in parallel for the full request timeout. The target of 20 is sized so a single check approximates the providers Kubo's bitswap would accumulate over the lifetime of a real retrieval.
-- ✨ Per-provider bitswap dials are now seeded with addresses the daemon's main host already learned for the target peer, on top of the record's own addresses and the `FindPeer` fallback. The bitswap dial timeout moves from 15s to 30s so NAT hole-punches and relay setup have time to complete. The user-visible effect: providers the previous code rejected as "failed to dial: no addresses" can now succeed when the daemon has a recent address for the peer from earlier lookups.
 
 ### Removed
 
 ### Fixed
 
 ### Security
+
+## [v0.10.0] - 2026-05-14
+
+### Added
+
+- ✨ When every provider record arrives without an address, the UI no longer reports "0 working providers". It flags the records as likely stale and suggests trying a different routing endpoint in Backend Config. The JSON wire format is unchanged.
+
+### Changed
+
+- ✨ CID-only checks keep looking for usable providers past the first 10 records. The backend drains DHT and IPNI until it has 20 providers with at least one multiaddr, capped at 40 attempted records overall. Address-less records no longer fill a result slot, and `FindPeer` enrichment runs in parallel for the full request timeout. The target of 20 matches what Kubo's bitswap collects over a real retrieval.
+- ✨ Bitswap dials now reuse addresses the daemon's main host already learned for the target peer, alongside record-supplied addresses and the `FindPeer` fallback. The dial timeout grows from 15s to 30s so NAT hole punches and relay setup can finish. Providers previously rejected with "failed to dial: no addresses" can now succeed.
+
+## [v0.9.2] - 2026-04-27
+
+### Changed
+
+- [boxo v0.39.0](https://github.com/ipfs/boxo/releases/tag/v0.39.0) (from v0.37.0) ([#138](https://github.com/ipfs/ipfs-check/pull/138))
+- [go-libp2p v0.48.0](https://github.com/libp2p/go-libp2p/releases/tag/v0.48.0) (from v0.47.0) ([#136](https://github.com/ipfs/ipfs-check/pull/136))
+- [go-libp2p-kad-dht v0.39.1](https://github.com/libp2p/go-libp2p-kad-dht/releases/tag/v0.39.1) (from v0.38.0) ([#136](https://github.com/ipfs/ipfs-check/pull/136))
+- bumped GitHub Actions to latest majors: `actions/checkout@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`, `docker/setup-qemu-action@v4`, `docker/setup-buildx-action@v4`, `docker/login-action@v4`, `docker/build-push-action@v7` ([#136](https://github.com/ipfs/ipfs-check/pull/136))
+- README rewritten for clarity: active voice, scannable headings, and simpler phrasing ([#136](https://github.com/ipfs/ipfs-check/pull/136))
 
 ## [v0.9.1] - 2026-02-18
 
