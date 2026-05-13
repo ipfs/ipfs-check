@@ -405,6 +405,16 @@ function formatJustCidOutput (resp) {
     })
 
     outHtml += `<div class='mb-4'><span class='text-lg font-bold'>${successfulProviders > 0 ? iconCheck : iconCross} Found ${successfulProviders} working providers</span> <span class='text-gray-600'>(out of ${providers.length} provider records sampled from Amino DHT and IPNI) that could be connected to and had the CID available over Bitswap:</span></div>`
+
+    // If every returned provider record lacked any usable address, surface a
+    // hint. This typically means the closest DHT peers held stale provider
+    // records and the FindPeer fallback could not find the peer either, so
+    // the network has nothing fresh to dial.
+    const allNoAddrs = providers.length > 0 && providers.every(p => !p.Addrs || p.Addrs.length === 0)
+    if (allNoAddrs) {
+        outHtml += `<div class='bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded mb-4 flex gap-x-2 items-start'>${iconInfo}<span>None of the returned provider records contained a current multiaddr. The records are likely stale (providers re-advertised the CID long ago and have since gone offline or changed addresses), or the routing layer did not have fresh peer information. Try again later, ask the publisher to re-provide, or test against a different routing endpoint in <b>Backend Config</b>.</span></div>`
+    }
+
     outHtml += `<div class='grid gap-4 grid-cols-1'>`
     for (const provider of providers) {
         const couldConnect = provider.ConnectionError === ''
