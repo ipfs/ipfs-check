@@ -186,8 +186,8 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 
 	// count=0 streams unbounded; we cap termination on results below so
 	// address-less records do not exhaust the budget.
-	dhtProvsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, 0)
-	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, 0)
+	dhtProvsCh := d.dht.FindProvidersAsync(queryCtx, cidKey, maxAttemptedProviders)
+	ipniProvsCh := routerClient.FindProvidersAsync(queryCtx, cidKey, maxAttemptedProviders)
 
 	out := make([]providerOutput, 0, maxAttemptedProviders)
 	var wg sync.WaitGroup
