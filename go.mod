@@ -9,11 +9,11 @@ require (
 	github.com/ipfs/go-cid v0.6.1
 	github.com/ipfs/go-datastore v0.9.1
 	github.com/ipfs/go-ipld-format v0.6.3
-	github.com/ipfs/go-log/v2 v2.9.1
-	github.com/ipshipyard/vole v0.0.0-20260222154712-1ef00f039425
+	github.com/ipfs/go-log/v2 v2.9.2
+	github.com/ipshipyard/vole v0.0.1
 	github.com/libp2p/go-doh-resolver v0.5.0
 	github.com/libp2p/go-libp2p v0.48.0
-	github.com/libp2p/go-libp2p-kad-dht v0.39.1
+	github.com/libp2p/go-libp2p-kad-dht v0.39.2
 	github.com/libp2p/go-libp2p-record v0.3.1
 	github.com/libp2p/go-msgio v0.3.0
 	github.com/multiformats/go-multiaddr v0.16.1
@@ -94,7 +94,7 @@ require (
 	github.com/libp2p/go-yamux/v5 v5.0.1 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/miekg/dns v1.1.72 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
@@ -171,7 +171,7 @@ require (
 	go.uber.org/fx v1.24.0 // indirect
 	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
+	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
