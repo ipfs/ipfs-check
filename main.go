@@ -109,7 +109,13 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 	log.Printf("Ready to start serving.")
 
 	checkHandler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Access-Control-Allow-Origin", "*")
+		setCORSHeaders(w)
+		// Answer CORS preflight so browsers on any origin, including pages that
+		// embed the UI in an iframe, can call this endpoint.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
 		q := r.URL.Query()
 		maStr := q.Get("multiaddr")
@@ -291,6 +297,17 @@ func BasicAuth(handler http.Handler, username, password string) http.Handler {
 
 		handler.ServeHTTP(w, r)
 	})
+}
+
+// setCORSHeaders sets permissive CORS headers on the check endpoint so it can
+// be called from any web frontend: the hosted UI at check.ipfs.network, pages
+// that embed the UI in an iframe, and self-hosted deployments served from a
+// different origin.
+func setCORSHeaders(w http.ResponseWriter) {
+	h := w.Header()
+	h.Set("Access-Control-Allow-Origin", "*")
+	h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	h.Set("Access-Control-Allow-Headers", "*")
 }
 
 // getWebAddress returns listener with [::] and 0.0.0.0 replaced by localhost

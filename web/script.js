@@ -3,6 +3,14 @@ const iconCheck = `<svg class="inline w-5 h-5 text-green-500 mr-1" fill="none" s
 const iconCross = `<svg class="inline w-5 h-5 text-red-500 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`
 const iconInfo = `<svg class="inline w-5 h-5 text-blue-500 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01"/></svg>`
 
+// Link to the ipfs-check backend repo, surfaced when the configured backend is
+// slow or unreachable so users can run their own and point Backend URL at it.
+const selfHostedBackendLink = `<a href='https://github.com/ipfs/ipfs-check#self-hosting' target='_blank' rel='noopener noreferrer' class='text-blue-600 hover:text-blue-800 underline'>self-hosted ipfs-check backend</a>`
+
+// Appended to every failure box so the self-hosting option is always one click
+// away, whatever the backend problem was.
+const selfHostTip = `<span class='block mt-2 text-sm'>Tip: you can run a ${selfHostedBackendLink} and use it as your <b>Backend URL</b>.</span>`
+
 window.addEventListener('load', function () {
     initFormValues(new URL(window.location))
     
@@ -30,6 +38,14 @@ window.addEventListener('load', function () {
         cidInput.addEventListener('change', function() {
             showOutput('') // clear out previous results
             showRawOutput('') // clear out previous results
+            // Clearing results returns us to a fresh state, so drop any
+            // leftover "Retry" label from a prior timeout. Skip while a check
+            // is running (button disabled) to leave the live countdown intact.
+            const button = document.getElementById('submit')
+            const buttonText = document.getElementById('button-text')
+            if (button && buttonText && !button.disabled) {
+                buttonText.textContent = 'Run Test'
+            }
         })
     }
     
@@ -42,9 +58,14 @@ window.addEventListener('load', function () {
         const formData = new FormData(queryForm)
         const backendURL = getBackendUrl(formData)
         const inputMaddr = formData.get('multiaddr')
-        
+
         // Start countdown timer
         const timeoutSeconds = parseInt(formData.get('timeoutSeconds')) || 30
+        // The backend bounds its own work by timeoutSeconds. Give it that long
+        // plus a small leniency for network and serialization overhead, then
+        // abort the request. Without this the fetch hangs indefinitely when the
+        // backend stalls past its deadline (e.g. overloaded or unreachable).
+        const abortAfterSeconds = timeoutSeconds + 5
         startCountdown(timeoutSeconds)
 
         plausible('IPFS Check Run', {
@@ -55,66 +76,106 @@ window.addEventListener('load', function () {
 
         showInQuery(formData) // add `cid` and `multiaddr` to local url query to make it shareable
         toggleSubmitButton()
+
+        const controller = new AbortController()
+        const abortTimer = setTimeout(() => controller.abort(), abortAfterSeconds * 1000)
+        let failed = false
+        // Set once fetch resolves, to tell connect failures (bad URL, dead
+        // domain, CORS, offline) apart from failures reading the response.
+        let reached = false
         try {
-          const res = await fetch(backendURL, { method: 'POST' })
+          const res = await fetch(backendURL, { method: 'POST', signal: controller.signal })
+          reached = true
 
           if (res.ok) {
               const respObj = await res.json()
               showRawOutput(JSON.stringify(respObj, null, 2))
 
-              if(inputMaddr === '') {
-                const output = formatJustCidOutput(respObj)
-                showOutput(output)
-              } else {
-                const output = formatMaddrOutput(inputMaddr, respObj)
-                showOutput(output)
+              // Rendering is separate from reading: a formatter throwing on an
+              // unexpected (but valid) response shape is a display bug, not a
+              // backend failure, so report it honestly and leave the button as
+              // Run Test (a retry would fail the same way). The raw JSON above
+              // stays available.
+              try {
+                if(inputMaddr === '') {
+                  const output = formatJustCidOutput(respObj)
+                  showOutput(output)
+                } else {
+                  const output = formatMaddrOutput(inputMaddr, respObj)
+                  showOutput(output)
+                }
+              } catch (renderErr) {
+                console.log(renderErr)
+                showOutput(formatRenderErrorOutput(renderErr))
               }
           } else {
+              failed = true
               const resText = await res.text()
-              showOutput(`⚠️ backend returned an error: ${res.status} ${resText}`)
+              showOutput(formatHttpErrorOutput(backendURL.host, res.status, resText))
           }
         } catch (e) {
-          console.log(e)
-          showOutput(`⚠️ backend error: ${e}`)
+          failed = true
+          if (e.name === 'AbortError') {
+            showOutput(formatTimeoutOutput(timeoutSeconds, abortAfterSeconds, backendURL.host))
+          } else {
+            console.log(e)
+            showOutput(formatRequestErrorOutput(backendURL.host, reached, e))
+          }
         } finally {
-          stopCountdown()
+          clearTimeout(abortTimer)
+          // Any failure relabels the button to Retry so another click re-runs
+          // the same check (the button is a form submit, so the click re-runs
+          // this handler). A successful run restores the default label.
+          stopCountdown(failed ? 'Retry' : 'Run Test')
           toggleSubmitButton()
         }
     })
     
     function startCountdown(seconds) {
-        // Clear any existing countdown
-        stopCountdown()
-        
+        // Clear any existing timer without touching the label; it is set below.
+        clearCountdownTimer()
+
         const buttonText = document.getElementById('button-text')
         let remaining = seconds
-        
+
         // Update button text immediately
         if (buttonText) {
             buttonText.textContent = `Testing: ${remaining}s`
         }
-        
+
         // Update every second
         countdownInterval = setInterval(() => {
             remaining--
-            if (remaining <= 0) {
-                stopCountdown()
-            } else if (buttonText) {
-                buttonText.textContent = `Testing: ${remaining}s`
+            if (remaining > 0) {
+                if (buttonText) {
+                    buttonText.textContent = `Testing: ${remaining}s`
+                }
+            } else {
+                // Past the requested timeout. The request is still in flight
+                // during the leniency window before it is aborted, so keep the
+                // button in a busy state rather than resetting its label.
+                clearCountdownTimer()
+                if (buttonText) {
+                    buttonText.textContent = 'Waiting…'
+                }
             }
         }, 1000)
     }
-    
-    function stopCountdown() {
+
+    function clearCountdownTimer() {
         if (countdownInterval) {
             clearInterval(countdownInterval)
             countdownInterval = null
         }
-        
-        // Restore original button text
+    }
+
+    function stopCountdown(label = 'Run Test') {
+        clearCountdownTimer()
+
+        // Restore the button label (default 'Run Test', or 'Retry' on abort).
         const buttonText = document.getElementById('button-text')
         if (buttonText) {
-            buttonText.textContent = 'Run Test'
+            buttonText.textContent = label
         }
     }
 })
@@ -200,6 +261,77 @@ function toggleSubmitButton() {
         // Toggle spinner visibility
         spinner.classList.toggle('hidden')
     }
+}
+
+// htmlEscapes is hoisted so escapeHtml builds the lookup once, not per char.
+const htmlEscapes = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+
+// escapeHtml makes a backend-supplied string safe to interpolate as HTML text
+// or into a quoted attribute. Error bodies and exception messages can carry
+// markup (e.g. a JSON parse error quotes the offending "<html>..." page), which
+// would otherwise render as HTML.
+function escapeHtml (s) {
+    return String(s).replace(/[&<>"']/g, (c) => htmlEscapes[c])
+}
+
+// codeSnippet renders a backend-supplied value as escaped inline <code>.
+function codeSnippet (text) {
+    return `<code class='bg-gray-100 px-1 rounded'>${escapeHtml(text)}</code>`
+}
+
+// errText extracts a displayable string from a thrown value.
+function errText (err) {
+    return String((err && err.message) || err || 'unknown error')
+}
+
+// backendLabel returns " <code>host</code>" (note the leading space) to drop
+// into a "the backend<label>" sentence, or '' when the host is unknown.
+function backendLabel (host) {
+    return host ? ` ${codeSnippet(host)}` : ''
+}
+
+// failureBox renders a styled message box for a failed check, always appending
+// the self-hosting tip. warn=true uses the softer yellow style (timeouts);
+// other failures use red.
+function failureBox (message, warn) {
+    const style = warn
+        ? 'bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800'
+        : 'bg-red-100 border-l-4 border-red-500 text-red-700'
+    return `<div class='${style} p-4 rounded mb-4 flex gap-x-2 items-start'>${warn ? iconInfo : iconCross}<span>${message}${selfHostTip}</span></div>`
+}
+
+function formatTimeoutOutput (timeoutSeconds, abortAfterSeconds, backendHost) {
+    return failureBox(`The backend${backendLabel(backendHost)} did not finish responding within <b>${abortAfterSeconds}s</b> (your ${timeoutSeconds}s timeout plus 5s leniency), so the request was aborted. It may be overloaded or unreachable. Press <b>Retry</b> to run the check again, or raise the <b>Check Timeout</b> in <b>Backend Config</b>.`, true)
+}
+
+function formatHttpErrorOutput (backendHost, status, body) {
+    const trimmed = (body || '').trim()
+    const detail = trimmed ? `: ${codeSnippet(trimmed)}` : ''
+    // 4xx is a client error: retrying the same request fails the same way, so
+    // steer the user to fix their input. 5xx and the rest are transient.
+    const action = status >= 400 && status < 500
+        ? 'Check your input, then press <b>Retry</b>.'
+        : 'Press <b>Retry</b> to run the check again.'
+    return failureBox(`The backend${backendLabel(backendHost)} returned an error (HTTP <b>${status}</b>)${detail}. ${action}`)
+}
+
+// formatRenderErrorOutput covers a response that was received and parsed but
+// could not be rendered (an unexpected shape made a formatter throw). It is a
+// display issue rather than a backend failure, so it points at the raw JSON
+// instead of suggesting a retry.
+function formatRenderErrorOutput (err) {
+    return failureBox(`The check ran, but its response could not be displayed (${codeSnippet(errText(err))}). See <b>Raw Output</b> below for the full response.`)
+}
+
+// formatRequestErrorOutput covers a fetch that never produced a response
+// (reached=false: bad URL, dead domain, DNS failure, connection refused, CORS,
+// TLS, offline) and a response that was received but could not be read
+// (reached=true, e.g. the body was not valid JSON).
+function formatRequestErrorOutput (backendHost, reached, err) {
+    if (!reached) {
+        return failureBox(`Could not reach the backend${backendLabel(backendHost)}. The address may be wrong, the server may be down, or it may be blocking cross-origin (CORS) requests. Check the <b>Backend URL</b> in <b>Backend Config</b>, then press <b>Retry</b>.`)
+    }
+    return failureBox(`The backend${backendLabel(backendHost)} returned a response that could not be read (${codeSnippet(errText(err))}). Press <b>Retry</b> to run the check again.`)
 }
 
 function formatMutableResolution(mutableRes) {
