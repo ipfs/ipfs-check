@@ -15,7 +15,12 @@ The following emojis are used to highlight certain changes:
 
 ### Added
 
+- ✨ The web UI now surfaces every check failure as a clear, styled message with a Retry button instead of spinning forever or printing a raw error. It aborts a stalled backend after the requested timeout plus a 5 second leniency, and separately reports an unreachable backend (wrong URL, dead domain, CORS), an HTTP error response (with the backend's message), and a response it cannot parse. Every failure message also links to running your own [self-hosted backend](README.md#self-hosting).
+- README documents how to self-host the backend, including the CORS headers it sends and how to keep the UI embeddable in an iframe.
+
 ### Changed
+
+- The `/check` endpoint sends liberal CORS headers (`Access-Control-Allow-Origin: *`, plus `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers`) and answers `OPTIONS` preflight, so any frontend or self-hosted deployment can call it cross-origin.
 
 ### Removed
 

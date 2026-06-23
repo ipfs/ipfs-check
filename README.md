@@ -54,6 +54,29 @@ To modify the web interface styles:
 Production deployments should terminate HTTPS at a reverse proxy in front of the Go server.
 
 
+## Self-hosting
+
+The public backend at `https://ipfs-check-backend.ipfs.io` is shared and rate-limited, so it can be slow or busy. Run your own instance for faster, private checks.
+
+A single `ipfs-check` process serves both the HTTP API (`/check`) and the web UI (`/web/`). Start it (see [Install](#install) or [Docker](#docker)), then either open its own `/web/` page or open <https://check.ipfs.network> and set **Backend URL** under **Backend Config** to your instance (for example `https://ipfs-check.example.com`).
+
+### CORS
+
+The `/check` endpoint sends permissive CORS headers so any web frontend can call it from a different origin, and it answers `OPTIONS` preflight requests:
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: *
+```
+
+Behind a reverse proxy, preserve these headers; do not strip or override `Access-Control-Allow-Origin`.
+
+### Embedding in an iframe
+
+The server does not send `X-Frame-Options`, so the web UI can be embedded in an iframe (IPFS WebUI's Diagnostics page does this). Behind a reverse proxy, keep it embeddable by not adding `X-Frame-Options` or a restrictive `Content-Security-Policy: frame-ancestors` directive.
+
+
 ## Running locally
 
 ### Terminal 1
