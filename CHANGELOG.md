@@ -15,6 +15,18 @@ The following emojis are used to highlight certain changes:
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [v0.11.0] - 2026-07-23
+
+### Added
+
 - ✨ Every provider now says whether a web browser can retrieve from it, and whether a Service Worker can. Four kinds of address count: Secure WebSockets (`/tls/ws`, `/wss`), WebTransport, WebRTC Direct, and [HTTPS trustless gateway](https://specs.ipfs.tech/http-gateways/trustless-gateway/) endpoints (`/tls/http`, `/https`). A plain `/ws` address, or a bare `/tcp` or `/quic-v1` one, is unusable from a browser however well it serves everyone else, and a provider offering only those is now flagged instead of passing as fully working. Service Workers get a second line because they have no WebRTC, so a WebRTC Direct peer is reachable from a browser tab but not from a Service Worker ([#85](https://github.com/ipfs/ipfs-check/issues/85), [#25](https://github.com/ipfs/ipfs-check/issues/25)).
 - Both answers report what was reached, not what was advertised. Browser-usable libp2p addresses are dialed on their own, and HTTPS endpoints are asked for a block the way a page would ask, carrying an `Origin` header. An expired certificate, a port that never answers and a missing `Access-Control-Allow-Origin` header therefore all read as "no". `/dnsaddr` records are resolved first, including chained ones, since they hide the transport behind a TXT record.
 - Providers with an HTTPS endpoint get a `CORS` line of their own, since an endpoint can answer a block request perfectly and the browser still discards the bytes without an `Access-Control-Allow-Origin` header. When that header is the only thing in the way, the provider is labelled `No CORS` rather than the vaguer `No Browser`, because the fix is one response header.
@@ -26,12 +38,6 @@ The following emojis are used to highlight certain changes:
 
 - Updated to [boxo v0.42.0](https://github.com/ipfs/boxo/releases/tag/v0.42.0) (from v0.41.0) and [go-libp2p-kad-dht v0.42.1](https://github.com/libp2p/go-libp2p-kad-dht/releases/tag/v0.42.1) (from v0.41.0), whose `dht.New` no longer takes a context.
 - The `/check` endpoint sends liberal CORS headers (`Access-Control-Allow-Origin: *`, plus `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers`) and answers `OPTIONS` preflight, so any frontend or self-hosted deployment can call it cross-origin.
-
-### Removed
-
-### Fixed
-
-### Security
 
 ## [v0.10.0] - 2026-05-14
 
