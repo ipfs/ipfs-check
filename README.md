@@ -145,6 +145,7 @@ type providerOutput struct {
 	ConnectionMaddrs         []string
 	DataAvailableOverBitswap BitswapCheckOutput
 	DataAvailableOverHTTP    HTTPCheckOutput
+	BrowserCheck             BrowserCheckOutput
 	Source                   string
 }
 ```
@@ -157,6 +158,7 @@ Fields of `providerOutput`:
 - `ConnectionMaddrs`: multiaddrs used to reach the provider.
 - `DataAvailableOverBitswap`: result of the Bitswap check.
 - `DataAvailableOverHTTP`: result of the HTTP check.
+- `BrowserCheck`: result of the browser reachability check.
 - `Source`: origin of the provider record (`IPNI` or `Amino DHT`).
 
 #### Results when a `multiaddr` and a `cid` are passed
@@ -172,6 +174,16 @@ type peerCheckOutput struct {
 	ConnectionMaddrs             []string
 	DataAvailableOverBitswap     BitswapCheckOutput
 	DataAvailableOverHTTP        HTTPCheckOutput
+	BrowserCheck                 BrowserCheckOutput
+}
+
+type BrowserCheckOutput struct {
+	Enabled                 bool
+	WebBrowserCompatible    bool
+	ServiceWorkerCompatible bool
+	VerifiedAddr            string
+	CandidateAddrs          []string
+	Error                   string
 }
 
 type BitswapCheckOutput struct {
@@ -193,7 +205,7 @@ type HTTPCheckOutput struct {
 }
 ```
 
-The check answers five questions:
+The check answers six questions:
 
 1. Does the given peer advertise the CID in the DHT or in IPNI?
    - `ProviderRecordFromPeerInDHT`: the peer has a provider record in the DHT.
@@ -221,6 +233,21 @@ The check answers five questions:
    - `Requested`: the request was sent.
    - `Found`: the block was returned.
    - `Error`: the error, if any.
+
+6. Can a web browser retrieve from the peer? `BrowserCheck` contains:
+   - `Enabled`: the browser check ran.
+   - `WebBrowserCompatible`: a browser-usable address was reached.
+   - `ServiceWorkerCompatible`: the same address works inside a Service Worker, which has no WebRTC.
+   - `VerifiedAddr`: the address that worked. A libp2p handshake completed over it, or, for an HTTPS endpoint, it allowed a cross-origin read.
+   - `CandidateAddrs`: the announced addresses a browser could have used.
+   - `Error`: why none of them worked.
+   - `CORS`: for peers with an HTTPS endpoint, whether a page from another origin may read its responses. `Enabled` says an endpoint was asked, `Allowed` says a browser may read the block, and `Error` says why not. This is the whole question for an HTTP provider: the endpoint can answer perfectly and the browser still discards the bytes without an `Access-Control-Allow-Origin` header covering the page.
+
+   Both verdicts describe what was reached, not what was advertised. An expired certificate on a `/tls/ws` address, a `/webrtc-direct` port that never answers, and an HTTPS endpoint that sends no CORS header all advertise a browser transport, and none of them let a page fetch a block.
+
+   Browser-usable libp2p addresses are dialed on a separate host, over those addresses and nothing else. HTTPS endpoints cannot be settled by dialing, so they get a [CORS preflight](https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request) and, if that does not allow the read, the block request a gateway fetch actually makes. The second request matters: it is a simple request, which browsers never preflight, so an endpoint can refuse `OPTIONS` and still be perfectly usable from a page.
+
+   Four kinds of address qualify: Secure WebSockets (`/tls/ws`, `/wss`), WebTransport, WebRTC Direct, and [HTTPS trustless gateway](https://specs.ipfs.tech/http-gateways/trustless-gateway/) endpoints (`/tls/http`, `/https`). A browser cannot open a raw socket, so a plain `/ws` address, or a bare `/tcp` or `/quic-v1` one, is out of reach, which is why a peer can serve every other client and still be unusable from a browser. WebTransport and WebRTC Direct need no certificate authority, since the certificate hash travels in the address; the other two need a TLS certificate, either your own or one from a broker such as [AutoTLS](https://github.com/ipfs/kubo/blob/master/docs/config.md#autotls).
 
 ## Metrics
 

@@ -158,6 +158,7 @@ type providerOutput struct {
 	ConnectionMaddrs         []string
 	DataAvailableOverBitswap BitswapCheckOutput
 	DataAvailableOverHTTP    HTTPCheckOutput
+	BrowserCheck             BrowserCheckOutput
 	Source                   string
 	AgentVersion             string
 }
@@ -273,13 +274,30 @@ func (d *daemon) runCidCheck(ctx context.Context, cidKey cid.Cid, ipniURL string
 //
 // Returns false when a probe host cannot be constructed; the caller
 // should drop the provider rather than append a stub.
-func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider peer.AddrInfo, src string, httpRetrieval bool) (providerOutput, bool) {
-	provOutput := providerOutput{
+func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider peer.AddrInfo, src string, httpRetrieval bool) (provOutput providerOutput, ok bool) {
+	provOutput = providerOutput{
 		ID:                       provider.ID.String(),
 		Source:                   src,
 		DataAvailableOverBitswap: BitswapCheckOutput{},
 		DataAvailableOverHTTP:    HTTPCheckOutput{},
 	}
+
+	// Whether a browser could use this provider is answered on a separate host,
+	// dialing only browser-dialable addresses, so it runs alongside the probes
+	// below rather than after them. Started once the candidate addresses are
+	// known, which happens at a different point for HTTP-only providers.
+	var browserWG sync.WaitGroup
+	var browserOut BrowserCheckOutput
+	peerID := provider.ID
+	startBrowserCheck := func(addrs []multiaddr.Multiaddr) {
+		browserWG.Go(func() {
+			browserOut = checkBrowserCompat(ctx, d.createTestHost, peerID, cidKey, addrs)
+		})
+	}
+	defer func() {
+		browserWG.Wait()
+		provOutput.BrowserCheck = browserOut
+	}()
 
 	httpInfo, libp2pInfo := network.SplitHTTPAddrs(provider)
 	if len(httpInfo.Addrs) > 0 && httpRetrieval {
@@ -306,6 +324,7 @@ func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider pee
 
 		if len(libp2pInfo.Addrs) == 0 {
 			provOutput.DataAvailableOverBitswap.Enabled = false
+			startBrowserCheck(httpInfo.Addrs)
 			return provOutput, true
 		}
 	}
@@ -313,6 +332,7 @@ func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider pee
 	provider = libp2pInfo
 
 	outputAddrs := []string{}
+	publicAddrs := []multiaddr.Multiaddr{}
 	seen := map[string]struct{}{}
 	addPublicAddr := func(addr multiaddr.Multiaddr, alsoDial bool) {
 		if !manet.IsPublicAddr(addr) {
@@ -324,6 +344,7 @@ func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider pee
 		}
 		seen[s] = struct{}{}
 		outputAddrs = append(outputAddrs, s)
+		publicAddrs = append(publicAddrs, addr)
 		if alsoDial {
 			provider.Addrs = append(provider.Addrs, addr)
 		}
@@ -354,6 +375,13 @@ func (d *daemon) checkProvider(ctx context.Context, cidKey cid.Cid, provider pee
 
 	provOutput.Addrs = append(provOutput.Addrs, outputAddrs...)
 	provOutput.DataAvailableOverBitswap.Enabled = true
+
+	// HTTP endpoints count as browser-usable too, so a provider offering both
+	// is judged on everything it announces.
+	browserAddrs := make([]multiaddr.Multiaddr, 0, len(httpInfo.Addrs)+len(publicAddrs))
+	browserAddrs = append(browserAddrs, httpInfo.Addrs...)
+	browserAddrs = append(browserAddrs, publicAddrs...)
+	startBrowserCheck(browserAddrs)
 
 	testHost, err := d.createTestHost()
 	if err != nil {
@@ -396,6 +424,7 @@ type peerCheckOutput struct {
 	ConnectionMaddrs             []string
 	DataAvailableOverBitswap     BitswapCheckOutput
 	DataAvailableOverHTTP        HTTPCheckOutput
+	BrowserCheck                 BrowserCheckOutput
 }
 
 // runPeerCheck checks the connectivity and Bitswap/HTTP availability of a CID from a given peer (either with just peer ID or specific multiaddr)
@@ -445,8 +474,24 @@ func (d *daemon) runPeerCheck(ctx context.Context, ma multiaddr.Multiaddr, ai pe
 
 	httpInfo, libp2pInfo := network.SplitHTTPAddrs(ai)
 
+	// Same as in checkProvider: the browser-only dial gets its own host and
+	// runs alongside the probes below. The deferred wait covers the early
+	// returns further down.
+	var browserWG sync.WaitGroup
+	var browserOut BrowserCheckOutput
+	startBrowserCheck := func(addrs []multiaddr.Multiaddr) {
+		browserWG.Go(func() {
+			browserOut = checkBrowserCompat(ctx, d.createTestHost, ai.ID, c, addrs)
+		})
+	}
+	defer func() {
+		browserWG.Wait()
+		out.BrowserCheck = browserOut
+	}()
+
 	// If they provided an http address and enabled retrieval, try that.
 	if len(httpInfo.Addrs) > 0 && httpRetrieval {
+		startBrowserCheck(httpInfo.Addrs)
 		httpCheck := checkHTTPRetrieval(ctx, testHost, c, httpInfo, d.httpSkipVerify)
 		out.DataAvailableOverHTTP = httpCheck
 		if !httpCheck.Connected {
@@ -485,6 +530,10 @@ func (d *daemon) runPeerCheck(ctx context.Context, ma multiaddr.Multiaddr, ai pe
 			libp2pInfo.Addrs = append(libp2pInfo.Addrs, ma)
 		}
 	}
+
+	// Started here rather than above, so it sees the addresses the DHT
+	// contributed when the caller passed a bare peer ID.
+	startBrowserCheck(libp2pInfo.Addrs)
 
 	if !connectionFailed {
 		// Test Is the target connectable
