@@ -334,6 +334,84 @@ function formatRequestErrorOutput (backendHost, reached, err) {
     return failureBox(`The backend${backendLabel(backendHost)} returned a response that could not be read (${codeSnippet(errText(err))}). Press <b>Retry</b> to run the check again.`)
 }
 
+// Offered when a single peer turns out to have no browser-usable address,
+// where the person checking is usually the one who can fix it.
+const autoTLSLink = `<a href='https://github.com/ipfs/kubo/blob/master/docs/config.md#autotls' target='_blank' rel='noopener noreferrer' class='text-blue-600 hover:text-blue-800 underline'>AutoTLS</a>`
+
+// providerHasData reports whether a provider both answered and said it has the
+// block, which is what "working provider" means in the summary line.
+function providerHasData (provider) {
+    return provider.ConnectionError === '' &&
+        (provider.DataAvailableOverBitswap?.Found === true || provider.DataAvailableOverHTTP?.Found === true)
+}
+
+// shortReason condenses a backend error to something that fits on one line.
+// The full text stays in Raw Output.
+function shortReason (text, limit = 120) {
+    const flat = String(text).replace(/\s+/g, ' ').trim()
+    return flat.length > limit ? `${flat.slice(0, limit)}…` : flat
+}
+
+// isHTTPAddr reports whether a multiaddr string is an HTTPS endpoint a browser
+// would fetch from, rather than one it would open a connection over.
+function isHTTPAddr (addr) {
+    return /\/(https|tls\/http)(\/|$)/.test(addr)
+}
+
+// browserShortfall names what a provider cannot serve, for the card badge.
+// Empty when it serves browsers and Service Workers alike, or when the backend
+// did not report on it.
+//
+// A provider whose only way in is an HTTPS endpoint that refuses cross-origin
+// reads is named for that cause rather than the generic No Browser: the fix is
+// one response header, and saying so saves the operator the hunt.
+function browserShortfall (check) {
+    if (check?.Enabled !== true) return ''
+    if (check.WebBrowserCompatible === true) {
+        return check.ServiceWorkerCompatible === true ? '' : 'No Service Worker'
+    }
+    const candidates = check.CandidateAddrs || []
+    const corsIsTheOnlyBlocker = check.CORS?.Enabled === true && check.CORS?.Allowed !== true &&
+        candidates.length > 0 && candidates.every(isHTTPAddr)
+    return corsIsTheOnlyBlocker ? 'No CORS' : 'No Browser'
+}
+
+// browserCompatLines renders the two lines that say whether a browser could
+// retrieve from this provider, and whether a Service Worker could (it has no
+// WebRTC, so it can reach less than a tab can).
+//
+// Both answers are about what the check reached, not what the provider
+// advertised: an address can look right and never answer.
+function browserCompatLines (check) {
+    const webOk = check.WebBrowserCompatible === true
+    const verified = check.VerifiedAddr || ''
+    const candidates = check.CandidateAddrs?.length || 0
+
+    // The address that worked is listed further down, next to the other
+    // successful connection, so it is not repeated here.
+    let detail = ''
+    if (webOk) {
+        detail = ''
+    } else if (candidates > 0) {
+        const reason = check.Error ? `: ${escapeHtml(shortReason(check.Error))}` : ''
+        detail = `<span class='text-gray-600'>(${candidates} address${candidates > 1 ? 'es' : ''} a browser could use, none of them answered${reason})</span>`
+    } else if (check.Error) {
+        detail = `<span class='text-gray-600'>(${escapeHtml(shortReason(check.Error))})</span>`
+    } else {
+        detail = `<span class='text-gray-600'>(no address a browser can use)</span>`
+    }
+
+    let html = `<div class='flex items-center text-sm mb-1 ml-6'>${webOk ? iconCheck : iconCross}<span>Web Browser Compatible: <span class='font-mono'>${webOk ? 'Yes' : 'No'}</span> ${detail}</span></div>`
+
+    if (webOk) {
+        const swOk = check.ServiceWorkerCompatible === true
+        const swDetail = swOk ? '' : `<span class='text-gray-600'>(WebRTC works in a tab, but Service Workers have no WebRTC)</span>`
+        html += `<div class='flex items-center text-sm mb-1 ml-12'>${swOk ? iconCheck : iconCross}<span>Service Worker Compatible: <span class='font-mono'>${swOk ? 'Yes' : 'No'}</span> ${swDetail}</span></div>`
+    }
+
+    return html
+}
+
 function formatMutableResolution(mutableRes) {
     if (!mutableRes) return ''
 
@@ -399,7 +477,7 @@ function formatMaddrOutput (multiaddr, respObj) {
         outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-center'>${iconCross}<span>Could not connect to multiaddr: <span class='font-mono'>${peerResult.ConnectionError}</span></span></div>`
     } else {
         const madrs = peerResult?.ConnectionMaddrs
-        outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }:<br><span class='font-mono text-xs block ml-6'>${madrs.join('<br>')}</span></span></div>`
+        outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }:<br><span class='font-mono text-xs block ml-6'>${(madrs || []).join('<br>')}</span></span></div>`
     }
 
     // DHT status
@@ -465,6 +543,25 @@ function formatMaddrOutput (multiaddr, respObj) {
           outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>The HTTP endpoint responded that it does not have the data for the CID</span></div>`
       }
     }
+
+    // Browser reachability
+    if (peerResult.BrowserCheck?.Enabled === true) {
+        const check = peerResult.BrowserCheck
+        const candidates = check.CandidateAddrs?.length || 0
+        if (check.WebBrowserCompatible) {
+            const swNote = check.ServiceWorkerCompatible
+                ? 'A Service Worker can use it too.'
+                : 'A Service Worker cannot: it has no WebRTC.'
+            const over = check.VerifiedAddr
+                ? `, over<br><span class='font-mono text-xs block ml-6 break-all'>${escapeHtml(check.VerifiedAddr)}</span>`
+                : '. '
+            outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-start'>${iconCheck}<span>A web browser can retrieve from this peer${over}${swNote}</span></div>`
+        } else if (candidates > 0) {
+            outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-start'>${iconCross}<span>No web browser can retrieve from this peer. It announces ${candidates} address${candidates > 1 ? 'es' : ''} a browser could use, but none of them answered:<br><span class='font-mono text-xs block ml-6 break-all'>${escapeHtml(check.CandidateAddrs.join('\n'))}</span>${check.Error ? `<span class='block mt-2'>${escapeHtml(shortReason(check.Error, 300))}</span>` : ''}</span></div>`
+        } else {
+            outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-start'>${iconCross}<span>No web browser can retrieve from this peer. It announces no address a browser can use: only Secure WebSockets, WebTransport, WebRTC, or an HTTPS trustless gateway work there. ${autoTLSLink} gives a node the certificate it needs to serve over <code class='bg-red-50 px-1 rounded'>/wss</code>.</span></div>`
+        }
+    }
     outHtml += '</div>'
     return outHtml
 }
@@ -488,12 +585,8 @@ function formatJustCidOutput (resp) {
         return outHtml + `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-center'>${iconCross}<span>No providers found for the given CID</span></div>`
     }
 
-    const successfulProviders = providers.reduce((acc, provider) => {
-        if(provider.ConnectionError === '' && (provider.DataAvailableOverBitswap?.Found === true || provider.DataAvailableOverHTTP?.Found === true)) {
-            acc++
-        }
-        return acc
-    }, 0)
+    const workingProviders = providers.filter(providerHasData)
+    const successfulProviders = workingProviders.length
 
     // Show providers with the data first, followed by reachable providers, then by those with addresses
     providers.sort((a, b) => {
@@ -538,6 +631,20 @@ function formatJustCidOutput (resp) {
 
     outHtml += `<div class='mb-4'><span class='text-lg font-bold'>${successfulProviders > 0 ? iconCheck : iconCross} Found ${successfulProviders} working providers</span> <span class='text-gray-600'>(out of ${providers.length} provider records sampled from Amino DHT and IPNI) that could be connected to and had the CID available over Bitswap:</span></div>`
 
+    // People often arrive here because a web page cannot fetch a CID that a
+    // server fetches fine, so say up front how many of the working providers a
+    // browser could actually use.
+    // Providers checked by a backend old enough not to report this are left
+    // out entirely, rather than counted as browser-unfriendly.
+    const browserChecked = workingProviders.filter(p => p.BrowserCheck?.Enabled === true)
+    const browserReady = browserChecked.filter(p => p.BrowserCheck.WebBrowserCompatible === true).length
+    const serviceWorkerReady = browserChecked.filter(p => p.BrowserCheck.WebBrowserCompatible === true && p.BrowserCheck.ServiceWorkerCompatible === true).length
+    if (browserChecked.length > 0 && browserReady === 0) {
+        outHtml += `<div class='bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded mb-4 flex gap-x-2 items-start'>${iconInfo}<span>None of these providers can be reached from a web browser, so browser-based IPFS clients (JS libraries, Service Workers) cannot fetch this CID directly and have to fall back to an HTTP gateway. A browser can only use Secure WebSockets, WebTransport, WebRTC, or an HTTPS trustless gateway that allows cross-origin requests.</span></div>`
+    } else if (browserChecked.length > 0) {
+        outHtml += `<div class='text-sm text-gray-600 mb-4'>${browserReady} of ${browserChecked.length} working providers are reachable from a web browser, ${serviceWorkerReady} from a Service Worker.</div>`
+    }
+
     // If every returned provider record lacked any usable address, surface a
     // hint. This typically means the closest DHT peers held stale provider
     // records and the FindPeer fallback could not find the peer either, so
@@ -555,11 +662,25 @@ function formatJustCidOutput (resp) {
         const foundBitswap = provider.DataAvailableOverBitswap?.Found
         const foundHTTP = provider.DataAvailableOverHTTP?.Found
         const isUnsuccessful = !couldConnect || (!foundBitswap && !foundHTTP)
-        const cardBg = isUnsuccessful ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
+        const shortfall = browserShortfall(provider.BrowserCheck)
+        // Three states, worst first. A provider that some environment cannot
+        // use is not broken, it serves every other client fine, so it gets its
+        // own amber tier rather than the red one that means "this failed".
+        let cardBg = 'bg-white border-gray-200'
+        if (isUnsuccessful) {
+            cardBg = 'bg-red-50 border-red-200'
+        } else if (shortfall) {
+            cardBg = 'bg-yellow-50 border-yellow-200 border-l-4 border-l-yellow-500'
+        }
         outHtml += `<div class='rounded-lg shadow ${cardBg} p-4 border'>`
         outHtml += `<div class='flex justify-between items-center mb-2'>`
         outHtml += `<span class='font-mono text-xs bg-gray-100 px-2 py-1 rounded mr-2 break-all'>${provider.ID}</span>`
         if (hasBitswap) outHtml += `<span class='ml-2 px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-bold'>Bitswap</span>`
+        // Flagged in the header too, so a provider some environment cannot use
+        // is obvious without reading the lines below.
+        if (shortfall) {
+            outHtml += `<span class='ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs font-bold'>${shortfall}</span>`
+        }
         if (hasHTTP) outHtml += `<span class='ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-bold'>HTTP</span>`
         if (provider?.Source != null) {
             const bgColor = provider.Source === 'IPNI' ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'
@@ -581,8 +702,28 @@ function formatJustCidOutput (resp) {
             outHtml += `<div class='flex items-center text-sm mb-1'>${httpRes?.Connected ? iconCheck : iconCross}<span>HTTP Connected: <span class='font-mono'>${httpRes?.Connected ? 'Yes' : 'No'}</span></span></div>`
             outHtml += `<div class='flex items-center text-sm mb-1 ml-6'>${httpRes?.Requested ? iconCheck : iconCross}<span>HTTP request: <span class='font-mono'>${httpRes?.Requested ? 'Yes' : 'No'}</span></span></div>`
             outHtml += `<div class='flex items-center text-sm mb-1 ml-6'>${httpRes?.Found ? iconCheck : iconCross}<span>HTTP Found: <span class='font-mono'>${httpRes?.Found ? 'Yes' : 'No'}</span> ${httpRes?.Error ? '(' + httpRes.Error + ')' : ''}</span></div>`
+            // An endpoint can answer perfectly and still be useless to a page,
+            // so the header that decides that gets its own line.
+            const cors = provider.BrowserCheck?.CORS
+            if (cors?.Enabled === true) {
+                const corsDetail = cors.Allowed
+                    ? ''
+                    : `<span class='text-gray-600'>(no <span class='font-mono'>Access-Control-Allow-Origin</span>, so a web page may not read the response)</span>`
+                outHtml += `<div class='flex items-center text-sm mb-1 ml-6'>${cors.Allowed ? iconCheck : iconCross}<span>CORS: <span class='font-mono'>${cors.Allowed ? 'Yes' : 'No'}</span> ${corsDetail}</span></div>`
+            }
+        }
+        // Outside the Bitswap and HTTP blocks above, since an HTTPS-only
+        // provider is browser-usable too and would otherwise say nothing.
+        if (couldConnect && provider.BrowserCheck?.Enabled === true) {
+            outHtml += browserCompatLines(provider.BrowserCheck)
         }
         outHtml += (couldConnect && provider.ConnectionMaddrs) ? `<div class='text-xs text-gray-600 mt-2'><span class='font-bold'>${(hasHTTP && !provider.DataAvailableOverHTTP?.Found) ? 'Attempted' : 'Successful'} Connection Multiaddr${provider.ConnectionMaddrs.length > 1 ? 's' : ''}:</span><br><span class='font-mono block ml-4 break-all whitespace-break-spaces'>${provider.ConnectionMaddrs?.join('<br>') || ''}</span></div>` : ''
+        // Next to the connection above, since both are addresses that worked,
+        // just for different callers. Skipped when it is the same address, as
+        // it often is: repeating it says nothing.
+        const browserAddr = provider.BrowserCheck?.VerifiedAddr
+        const browserAddrIsNew = browserAddr && !(provider.ConnectionMaddrs || []).includes(browserAddr)
+        outHtml += browserAddrIsNew ? `<div class='text-xs text-gray-600 mt-2'><span class='font-bold'>Successful Browser Connection:</span><br><span class='font-mono block ml-4 break-all whitespace-break-spaces'>${escapeHtml(browserAddr)}</span></div>` : ''
         outHtml += (provider.Addrs?.length > 0) ? `<div class='text-xs text-gray-600 mt-2'><span class='font-bold'>Peer Multiaddrs:</span><br><span class='font-mono block ml-4 break-all whitespace-break-spaces'>${provider.Addrs.join('<br>') || ''}</span></div>` : ''
         outHtml += `</div>`
     }

@@ -128,7 +128,7 @@ func TestBasicIntegration(t *testing.T) {
 	dhtHost, err := libp2p.New()
 	require.NoError(t, err)
 	defer dhtHost.Close()
-	dhtServer, err := dht.New(ctx, dhtHost, dht.Mode(dht.ModeServer), dht.ProtocolPrefix(testDHTPrefix))
+	dhtServer, err := dht.New(dhtHost, dht.Mode(dht.ModeServer), dht.ProtocolPrefix(testDHTPrefix))
 	require.NoError(t, err)
 	defer dhtServer.Close()
 
@@ -148,7 +148,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		pm, err := dhtProtocolMessenger(testDHTID, queryHost)
 		require.NoError(t, err)
-		queryDHT, err := dht.New(ctx, queryHost, dht.ProtocolPrefix(testDHTPrefix), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
+		queryDHT, err := dht.New(queryHost, dht.ProtocolPrefix(testDHTPrefix), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
 		require.NoError(t, err)
 
 		d := &daemon{
@@ -172,7 +172,7 @@ func TestBasicIntegration(t *testing.T) {
 	bswap := bsserver.New(ctx, bn, bstore)
 	bn.Start(bswap)
 	defer bswap.Close()
-	dhtClient, err := dht.New(ctx, h, dht.ProtocolPrefix(testDHTPrefix), dht.Mode(dht.ModeClient), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
+	dhtClient, err := dht.New(h, dht.ProtocolPrefix(testDHTPrefix), dht.Mode(dht.ModeClient), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
 	require.NoError(t, err)
 	defer dhtClient.Close()
 	err = dhtClient.Bootstrap(ctx)
@@ -301,6 +301,13 @@ func TestBasicIntegration(t *testing.T) {
 		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Error").String().IsEmpty()
 		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Found").Boolean().IsTrue()
 		res.Value(0).Object().Value("DataAvailableOverBitswap").Object().Value("Responded").Boolean().IsTrue()
+
+		// The test peer listens on loopback and TCP, neither of which a
+		// browser on the public internet could use.
+		browser := res.Value(0).Object().Value("BrowserCheck").Object()
+		browser.Value("Enabled").Boolean().IsTrue()
+		browser.Value("WebBrowserCompatible").Boolean().IsFalse()
+		browser.Value("ServiceWorkerCompatible").Boolean().IsFalse()
 	})
 
 	t.Run("Data found via HTTP", func(t *testing.T) {
@@ -331,6 +338,12 @@ func TestBasicIntegration(t *testing.T) {
 		fmt.Println(httpAddr.String())
 		obj := test.QueryCid(t, "http://localhost:1234", testCid.String(), "httpRetrieval=on", "ipniIndexer="+ipniAddr)
 		obj.Value(0).Object().Value("DataAvailableOverHTTP").Object().Value("Found").Boolean().IsTrue()
+
+		// HTTP-only providers get the browser verdict too, on the same
+		// loopback grounds as above.
+		browser := obj.Value(0).Object().Value("BrowserCheck").Object()
+		browser.Value("Enabled").Boolean().IsTrue()
+		browser.Value("WebBrowserCompatible").Boolean().IsFalse()
 	})
 
 }

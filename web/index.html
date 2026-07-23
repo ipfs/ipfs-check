@@ -134,15 +134,112 @@
                         <strong>Multihash not advertised in the DHT</strong>. Your machine has not advertised that it has the given content in the
                         IPFS Public DHT (Amino DHT). This means that other machines will have to discover that you have the content in some other
                         way (e.g. pre-connecting to you optimistically, pre-connecting to you since related content is already
-                        advertised by you, some rendezvous service, being on the same LAN, etc.). If using Kubo consider enabling the
-                        <a href="https://github.com/ipfs/kubo/blob/master/docs/config.md#routingaccelerateddhtclient" target="_blank" rel="noopener noreferrer">Accelerated DHT Client</a>,
-                        which will advertise content faster and in particular should enable you to continue to republish your advertisements every 24hrs as
-                        required by the network.
+                        advertised by you, some rendezvous service, being on the same LAN, etc.).
                     </li>
                     <li class="pb-2">
                         <strong>Peer has not responded that it has the CID</strong>. Your node does not think it has the data you think it does,
                         or it took too long to respond. Until this is resolved, other machines will be unable to download that
                         content from you.
+                    </li>
+                </ul>
+            </div>
+        </details>
+
+        <details class="mb-4 border border-gray-200 rounded-lg p-4">
+            <summary class="text-lg font-bold cursor-pointer hover:text-gray-600">What do the Web Browser and Service Worker checks mean?</summary>
+            <div class="mt-4">
+                <p class="pb-2">
+                    A web browser cannot open a raw network socket, so it can never dial a plain
+                    <code class="bg-gray-100 px-1 rounded">/tcp</code> or <code class="bg-gray-100 px-1 rounded">/quic-v1</code> address.
+                    That does not make UDP useless: two of the four things a browser can use run over it. The full list is:
+                </p>
+                <ul class="list-disc ml-6">
+                    <li class="pb-2">
+                        <strong>HTTPS</strong> (<code class="bg-gray-100 px-1 rounded">/tls/http</code>, also written <code class="bg-gray-100 px-1 rounded">/https</code>).
+                        Ordinary web requests for blocks, as served by any
+                        <a href="https://specs.ipfs.tech/http-gateways/trustless-gateway/" target="_blank" rel="noopener noreferrer">trustless gateway</a>.
+                        Needs a TLS certificate, and an <code class="bg-gray-100 px-1 rounded">Access-Control-Allow-Origin</code> header so the page is allowed to read the response.
+                    </li>
+                    <li class="pb-2">
+                        <strong>Secure WebSocket</strong> (<code class="bg-gray-100 px-1 rounded">/tls/ws</code>, also written <code class="bg-gray-100 px-1 rounded">/wss</code>).
+                        A libp2p connection inside a TLS tunnel, carrying
+                        <a href="https://specs.ipfs.tech/bitswap-protocol/" target="_blank" rel="noopener noreferrer">Bitswap</a>.
+                        Needs a TLS certificate that browsers already trust.
+                    </li>
+                    <li class="pb-2">
+                        <strong>WebTransport</strong> (<code class="bg-gray-100 px-1 rounded">/quic-v1/webtransport/certhash/...</code>), over UDP.
+                        No certificate authority involved: the hash of the node's certificate travels in the address itself.
+                    </li>
+                    <li class="pb-2">
+                        <strong>WebRTC Direct</strong> (<code class="bg-gray-100 px-1 rounded">/webrtc-direct/certhash/...</code>), also over UDP and also without a certificate authority,
+                        but it works in a browser tab only.
+                    </li>
+                </ul>
+                <p class="pb-2">
+                    A page loaded over HTTPS is not allowed to open an unencrypted connection, so a plain
+                    <code class="bg-gray-100 px-1 rounded">/ws</code> address is refused before any traffic is sent
+                    (see <a href="https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts" target="_blank" rel="noopener noreferrer">secure contexts</a>).
+                    A node can serve every other IPFS client perfectly and still be out of reach from a browser, which is what <strong>No Browser</strong> means here.
+                    Such a node can still be reached the long way round, through another peer acting as a circuit relay, which this check does not test.
+                </p>
+                <p class="pb-2">
+                    <strong>Service Worker</strong> is a stricter second answer. Browser-based IPFS clients often run in a Service Worker, which has
+                    WebSocket, WebTransport and <code class="bg-gray-100 px-1 rounded">fetch</code>, but no WebRTC. A node whose only browser address is
+                    WebRTC Direct is reachable from a page and invisible to those clients, so it is marked <strong>No Service Worker</strong>.
+                </p>
+                <p>
+                    Both answers are tested, not guessed. The check connects using the browser-usable addresses and nothing else, and asks HTTPS endpoints
+                    for a block the way a page would, with an <code class="bg-gray-100 px-1 rounded">Origin</code> header, to see whether the response may be read.
+                    An address that looks right but never answers, or whose certificate has expired, is reported as <strong>No</strong>.
+                </p>
+            </div>
+        </details>
+
+        <details class="mb-4 border border-gray-200 rounded-lg p-4">
+            <summary class="text-lg font-bold cursor-pointer hover:text-gray-600">How do I make my node reachable from a web browser?</summary>
+            <div class="mt-4">
+                <ul class="list-disc ml-6">
+                    <li class="pb-2">
+                        <strong>Check that your node is reachable at all, first.</strong> Every browser transport rides on a TCP or UDP port that has to be
+                        open to the internet. Forward both, or leave UPnP on. A closed port is a far more common cause of <strong>No Browser</strong> than a
+                        missing feature, and it costs nothing to rule out.
+                    </li>
+                    <li class="pb-2">
+                        <strong>Look at what your node announces.</strong> If the addresses above do not appear in the list your node advertises, no browser can
+                        use it, whatever else is configured. Announcing a private address has the same effect, which is easy to do inside a container.
+                    </li>
+                    <li class="pb-2">
+                        <strong>Offer at least one address a browser can use.</strong> The two that work in every browser context both need a TLS certificate from a
+                        public authority, which <a href="https://letsencrypt.org/" target="_blank" rel="noopener noreferrer">Let's Encrypt</a> issues for free:
+                        <ul class="list-disc ml-6 mt-2">
+                            <li class="pb-2">
+                                <code class="bg-gray-100 px-1 rounded">/tls/http</code>, serving blocks over HTTPS with <code class="bg-gray-100 px-1 rounded">?format=raw</code>
+                                as a trustless gateway. Make sure the response carries <code class="bg-gray-100 px-1 rounded">Access-Control-Allow-Origin</code>.
+                                If it does not, check what actually reaches the browser before changing your node's config: a reverse proxy or CDN is the usual place the header gets dropped.
+                            </li>
+                            <li>
+                                <code class="bg-gray-100 px-1 rounded">/tls/ws</code>, accepting libp2p connections over a Secure WebSocket. Most implementations expect TLS
+                                to be terminated by a reverse proxy in front of a plain <code class="bg-gray-100 px-1 rounded">/ws</code> listener.
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="pb-2">
+                        <strong>No domain name?</strong> Let's Encrypt also issues certificates for
+                        <a href="https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability" target="_blank" rel="noopener noreferrer">bare IP addresses</a>, free, if your
+                        public IP is static. They last about six days, so renewal must be automated, they need the <code class="bg-gray-100 px-1 rounded">shortlived</code> profile,
+                        and only the <code class="bg-gray-100 px-1 rounded">http-01</code> and <code class="bg-gray-100 px-1 rounded">tls-alpn-01</code> challenges work for an IP.
+                        It also has to be the default certificate on that port, because a browser cannot ask for a certificate by name when it connects to an IP.
+                    </li>
+                    <li class="pb-2">
+                        <strong>Rather not manage certificates at all?</strong> If your implementation supports WebTransport or WebRTC Direct, they need no certificate
+                        authority: the certificate hash travels in the address, so an open UDP port is the whole setup. For the TLS options there are brokers that lend a node
+                        a domain name and answer the DNS challenge on its behalf, so no certificate work is left to you.
+                        <a href="https://github.com/ipfs/kubo/blob/master/docs/config.md#autotls" target="_blank" rel="noopener noreferrer">AutoTLS</a> and the
+                        <a href="https://github.com/ipshipyard/p2p-forge#readme" target="_blank" rel="noopener noreferrer">p2p-forge</a> service behind it are one example.
+                    </li>
+                    <li class="pb-2">
+                        <strong>No reachable address at all</strong>, for example behind carrier-grade NAT? None of the above helps on its own. Browsers will only be able to
+                        reach your node through a relay, or through a trustless HTTP gateway acting as a relaying proxy.
                     </li>
                 </ul>
             </div>
