@@ -91,7 +91,7 @@ func newDaemon(ctx context.Context, acceleratedDHT bool) (*daemon, error) {
 	}
 
 	// Setup DHT (standard or bundled with accelerated)
-	d, err := setupDHT(ctx, h, acceleratedDHT)
+	d, err := setupDHT(h, acceleratedDHT)
 	if err != nil {
 		return nil, err
 	}

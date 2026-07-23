@@ -152,7 +152,7 @@ func (b *bundledDHT) GetClosestPeers(ctx context.Context, key string) ([]peer.ID
 var _ kademlia = (*bundledDHT)(nil)
 
 // setupDHT initializes the DHT client(s) based on configuration
-func setupDHT(ctx context.Context, h host.Host, acceleratedDHT bool) (kademlia, error) {
+func setupDHT(h host.Host, acceleratedDHT bool) (kademlia, error) {
 	// Common validators for both DHT types
 	validators := record.NamespacedValidator{
 		"pk":   record.PublicKeyValidator{},
@@ -160,7 +160,7 @@ func setupDHT(ctx context.Context, h host.Host, acceleratedDHT bool) (kademlia, 
 	}
 
 	// Always create standard DHT first (starts immediately)
-	standardDHT, err := dht.New(ctx, h,
+	standardDHT, err := dht.New(h,
 		dht.Mode(dht.ModeClient),
 		dht.Validator(validators),
 		dht.BootstrapPeers(dht.GetDefaultBootstrapPeerAddrInfos()...))

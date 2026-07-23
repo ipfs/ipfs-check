@@ -128,7 +128,7 @@ func TestBasicIntegration(t *testing.T) {
 	dhtHost, err := libp2p.New()
 	require.NoError(t, err)
 	defer dhtHost.Close()
-	dhtServer, err := dht.New(ctx, dhtHost, dht.Mode(dht.ModeServer), dht.ProtocolPrefix(testDHTPrefix))
+	dhtServer, err := dht.New(dhtHost, dht.Mode(dht.ModeServer), dht.ProtocolPrefix(testDHTPrefix))
 	require.NoError(t, err)
 	defer dhtServer.Close()
 
@@ -148,7 +148,7 @@ func TestBasicIntegration(t *testing.T) {
 
 		pm, err := dhtProtocolMessenger(testDHTID, queryHost)
 		require.NoError(t, err)
-		queryDHT, err := dht.New(ctx, queryHost, dht.ProtocolPrefix(testDHTPrefix), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
+		queryDHT, err := dht.New(queryHost, dht.ProtocolPrefix(testDHTPrefix), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
 		require.NoError(t, err)
 
 		d := &daemon{
@@ -172,7 +172,7 @@ func TestBasicIntegration(t *testing.T) {
 	bswap := bsserver.New(ctx, bn, bstore)
 	bn.Start(bswap)
 	defer bswap.Close()
-	dhtClient, err := dht.New(ctx, h, dht.ProtocolPrefix(testDHTPrefix), dht.Mode(dht.ModeClient), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
+	dhtClient, err := dht.New(h, dht.ProtocolPrefix(testDHTPrefix), dht.Mode(dht.ModeClient), dht.BootstrapPeers(peer.AddrInfo{ID: dhtHost.ID(), Addrs: dhtHost.Addrs()}))
 	require.NoError(t, err)
 	defer dhtClient.Close()
 	err = dhtClient.Bootstrap(ctx)
