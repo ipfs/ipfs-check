@@ -39,6 +39,10 @@ The following emojis are used to highlight certain changes:
 - Updated to [boxo v0.42.0](https://github.com/ipfs/boxo/releases/tag/v0.42.0) (from v0.41.0) and [go-libp2p-kad-dht v0.42.1](https://github.com/libp2p/go-libp2p-kad-dht/releases/tag/v0.42.1) (from v0.41.0), whose `dht.New` no longer takes a context.
 - The `/check` endpoint sends liberal CORS headers (`Access-Control-Allow-Origin: *`, plus `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers`) and answers `OPTIONS` preflight, so any frontend or self-hosted deployment can call it cross-origin.
 
+### Fixed
+
+- A peer check that connected but reported no connection address no longer replaces the whole result with "response could not be displayed".
+
 ## [v0.10.0] - 2026-05-14
 
 ### Added

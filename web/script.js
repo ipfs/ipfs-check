@@ -370,8 +370,9 @@ function browserShortfall (check) {
     if (check.WebBrowserCompatible === true) {
         return check.ServiceWorkerCompatible === true ? '' : 'No Service Worker'
     }
+    const candidates = check.CandidateAddrs || []
     const corsIsTheOnlyBlocker = check.CORS?.Enabled === true && check.CORS?.Allowed !== true &&
-        (check.CandidateAddrs || []).every(isHTTPAddr)
+        candidates.length > 0 && candidates.every(isHTTPAddr)
     return corsIsTheOnlyBlocker ? 'No CORS' : 'No Browser'
 }
 
@@ -394,6 +395,8 @@ function browserCompatLines (check) {
     } else if (candidates > 0) {
         const reason = check.Error ? `: ${escapeHtml(shortReason(check.Error))}` : ''
         detail = `<span class='text-gray-600'>(${candidates} address${candidates > 1 ? 'es' : ''} a browser could use, none of them answered${reason})</span>`
+    } else if (check.Error) {
+        detail = `<span class='text-gray-600'>(${escapeHtml(shortReason(check.Error))})</span>`
     } else {
         detail = `<span class='text-gray-600'>(no address a browser can use)</span>`
     }
@@ -474,7 +477,7 @@ function formatMaddrOutput (multiaddr, respObj) {
         outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-center'>${iconCross}<span>Could not connect to multiaddr: <span class='font-mono'>${peerResult.ConnectionError}</span></span></div>`
     } else {
         const madrs = peerResult?.ConnectionMaddrs
-        outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }:<br><span class='font-mono text-xs block ml-6'>${madrs.join('<br>')}</span></span></div>`
+        outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-center'>${iconCheck}<span>Successfully connected to multiaddr${madrs?.length > 1 ? 's' : '' }:<br><span class='font-mono text-xs block ml-6'>${(madrs || []).join('<br>')}</span></span></div>`
     }
 
     // DHT status
@@ -549,7 +552,10 @@ function formatMaddrOutput (multiaddr, respObj) {
             const swNote = check.ServiceWorkerCompatible
                 ? 'A Service Worker can use it too.'
                 : 'A Service Worker cannot: it has no WebRTC.'
-            outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-start'>${iconCheck}<span>A web browser can retrieve from this peer, over<br><span class='font-mono text-xs block ml-6 break-all'>${escapeHtml(check.VerifiedAddr)}</span>${swNote}</span></div>`
+            const over = check.VerifiedAddr
+                ? `, over<br><span class='font-mono text-xs block ml-6 break-all'>${escapeHtml(check.VerifiedAddr)}</span>`
+                : '. '
+            outHtml += `<div class='bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded flex gap-x-2 items-start'>${iconCheck}<span>A web browser can retrieve from this peer${over}${swNote}</span></div>`
         } else if (candidates > 0) {
             outHtml += `<div class='bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded flex gap-x-2 items-start'>${iconCross}<span>No web browser can retrieve from this peer. It announces ${candidates} address${candidates > 1 ? 'es' : ''} a browser could use, but none of them answered:<br><span class='font-mono text-xs block ml-6 break-all'>${escapeHtml(check.CandidateAddrs.join('\n'))}</span>${check.Error ? `<span class='block mt-2'>${escapeHtml(shortReason(check.Error, 300))}</span>` : ''}</span></div>`
         } else {
@@ -632,7 +638,7 @@ function formatJustCidOutput (resp) {
     // out entirely, rather than counted as browser-unfriendly.
     const browserChecked = workingProviders.filter(p => p.BrowserCheck?.Enabled === true)
     const browserReady = browserChecked.filter(p => p.BrowserCheck.WebBrowserCompatible === true).length
-    const serviceWorkerReady = browserChecked.filter(p => p.BrowserCheck.ServiceWorkerCompatible === true).length
+    const serviceWorkerReady = browserChecked.filter(p => p.BrowserCheck.WebBrowserCompatible === true && p.BrowserCheck.ServiceWorkerCompatible === true).length
     if (browserChecked.length > 0 && browserReady === 0) {
         outHtml += `<div class='bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded mb-4 flex gap-x-2 items-start'>${iconInfo}<span>None of these providers can be reached from a web browser, so browser-based IPFS clients (JS libraries, Service Workers) cannot fetch this CID directly and have to fall back to an HTTP gateway. A browser can only use Secure WebSockets, WebTransport, WebRTC, or an HTTPS trustless gateway that allows cross-origin requests.</span></div>`
     } else if (browserChecked.length > 0) {
