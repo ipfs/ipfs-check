@@ -23,6 +23,20 @@ The following emojis are used to highlight certain changes:
 
 ### Security
 
+## [v0.11.1] - 2026-08-03
+
+### Changed
+
+- Updated to [boxo v0.42.1](https://github.com/ipfs/boxo/releases/tag/v0.42.1) (from v0.42.0), [go-libp2p v0.49.0](https://github.com/libp2p/go-libp2p/releases/tag/v0.49.0) (from an unreleased v0.48.1 snapshot) and [go-unixfsnode v1.10.6](https://github.com/ipfs/go-unixfsnode/releases/tag/v1.10.6) (from v1.10.5).
+
+### Fixed
+
+- A provider whose HTTPS endpoint is announced on an IPv6 address (`/ip6/.../tcp/443/tls/http`) is checked instead of being written off. The IPv6 literal was not bracketed when the endpoint became a URL, so the browser and CORS probes went to a host and port that do not exist and the provider read as unusable from a browser.
+
+### Security
+
+- The go-libp2p bump carries a fix for [CVE-2026-57497](https://github.com/advisories/GHSA-g35j-m5xg-vh3q), a memory exhaustion in webtransport-go's buffering of unknown capsules.
+
 ## [v0.11.0] - 2026-07-23
 
 ### Added
