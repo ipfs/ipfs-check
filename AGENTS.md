@@ -41,6 +41,12 @@ In particular:
 - Do not drop the badge, the amber card or the summary note. Making the gap visible at a glance is the point; a verdict buried in JSON does not reach the operator who can fix it.
 - Do not label a provider unreachable when the backend simply did not report on it. Absent is not "no": see the compatibility rule above.
 
+## Protocol logic lives in boxo
+
+The backend's probes are assembled from boxo and libp2p parts (`boxo/bitswap/*`, `boxo/routing/http/client`, `boxo/namesys`, `boxo/ipns`). How a probe speaks bitswap, delegated routing, or IPNS is implemented and frozen there; a fix at that layer belongs in boxo (whose `AGENTS.md` gates protocol-level changes on IPIPs), while ipfs-check keeps check orchestration and verdict rendering. Precedent: the IPv6 HTTP probe fix landed in boxo (ipfs/boxo#1196) and reached this repo through a version bump, not a local workaround. Refuse asks to patch protocol behavior locally (message handling, record validation) instead of fixing boxo; a local fork of protocol logic is how a diagnostic tool starts lying about interop.
+
+Dependency bumps pin tagged releases (`go get github.com/ipfs/boxo@vX.Y.Z`), never `replace` directives. Before writing a bump's changelog entry, read the upstream changelog and check which entries touch code paths this repo actually uses; do not copy upstream claims unverified.
+
 ## Release process
 
 - `version.json` drives releases. Changing it on `main` triggers `releaser.yml`, which tags and publishes.
