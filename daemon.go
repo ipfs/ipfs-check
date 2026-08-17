@@ -638,11 +638,16 @@ func checkHTTPRetrieval(ctx context.Context, host host.Host, c cid.Cid, pinfo pe
 		Enabled: true,
 	}
 
+	// Use a private cooldown registry, not the process-wide default. With the
+	// shared one, a failed probe answers the next check of the same host from
+	// memory for a minute. Someone who just fixed their gateway would then be
+	// told it is unreachable, with nothing dialed. Each check must dial.
 	htnet := httpnet.New(host,
 		httpnet.WithUserAgent(userAgent),
 		httpnet.WithResponseHeaderTimeout(5*time.Second), // default: 10
 		httpnet.WithInsecureSkipVerify(skipVerify),
 		httpnet.WithHTTPWorkers(1),
+		httpnet.WithCooldownTracker(httpnet.NewCooldownTracker()),
 	)
 	defer htnet.Stop()
 

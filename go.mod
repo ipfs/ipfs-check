@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/gavv/httpexpect/v2 v2.16.0
-	github.com/ipfs/boxo v0.42.1
+	github.com/ipfs/boxo v0.42.2
 	github.com/ipfs/go-block-format v0.2.4
 	github.com/ipfs/go-cid v0.6.2
 	github.com/ipfs/go-datastore v0.9.2
