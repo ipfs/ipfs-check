@@ -23,6 +23,14 @@ The following emojis are used to highlight certain changes:
 
 ### Security
 
+## [v0.11.2] - 2026-08-17
+
+### Changed
+
+- Updated to [boxo v0.42.2](https://github.com/ipfs/boxo/releases/tag/v0.42.2) (from v0.42.1).
+- Every check dials the HTTP endpoints it reports on. boxo now remembers a failed probe for a minute, across the whole process. That would make a later check of the same host repeat the old failure without dialing. ipfs-check opts out of it.
+- HTTP providers no longer get a background request every 5 seconds while a check runs. Latency now comes from the connection probe and from real block responses.
+
 ## [v0.11.1] - 2026-08-03
 
 ### Changed
