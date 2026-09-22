@@ -263,6 +263,15 @@ Protect `/metrics` with HTTP basic auth via the `--metrics-auth-username` and `-
 
 The `IPFS_CHECK_METRICS_AUTH_USER` and `IPFS_CHECK_METRICS_AUTH_PASS` environment variables work as well.
 
+## Maintainer Info
+
+> [!IMPORTANT]
+> There is no dedicated maintainer at the moment.
+>
+> After Protocol Labs nucleation, the [Shipyard](https://ipshipyard.com/) team maintained this project in 2024, 2025 and 2026. Shipyard's IPFS maintenance work [ended with 2026 Q3](https://ipshipyard.com/blog/2026-the-end-of-ipfs-at-shipyard/).
+>
+> Bring support and transition questions to the [community forum](https://discuss.ipfs.tech/).
+
 ## License
 
 [SPDX-License-Identifier: Apache-2.0 OR MIT](LICENSE.md)
