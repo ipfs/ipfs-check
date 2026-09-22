@@ -3,7 +3,7 @@ module github.com/ipfs/ipfs-check
 go 1.26.0
 
 require (
-	github.com/gavv/httpexpect/v2 v2.16.0
+	github.com/gavv/httpexpect/v2 v2.17.0
 	github.com/ipfs/boxo v0.43.0
 	github.com/ipfs/go-block-format v0.2.4
 	github.com/ipfs/go-cid v0.6.2

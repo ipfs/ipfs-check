@@ -94,8 +94,8 @@ github.com/gammazero/chanqueue v1.1.2 h1:dZEsxlyANZMyeTRemABqZF8QM9BnE4NBI43Oh3y
 github.com/gammazero/chanqueue v1.1.2/go.mod h1:XDN1X/jjAbmSceNFOQbtKToeSkxtdVdpKu90LiEdBEE=
 github.com/gammazero/deque v1.2.1 h1:9fnQVFCCZ9/NOc7ccTNqzoKd1tCWOqeI05/lPqFPMGQ=
 github.com/gammazero/deque v1.2.1/go.mod h1:5nSFkzVm+afG9+gy0VIowlqVAW4N8zNcMne+CMQVD2g=
-github.com/gavv/httpexpect/v2 v2.16.0 h1:Ty2favARiTYTOkCRZGX7ojXXjGyNAIohM1lZ3vqaEwI=
-github.com/gavv/httpexpect/v2 v2.16.0/go.mod h1:uJLaO+hQ25ukBJtQi750PsztObHybNllN+t+MbbW8PY=
+github.com/gavv/httpexpect/v2 v2.17.0 h1:nIJqt5v5e4P7/0jODpX2gtSw+pHXUqdP28YcjqwDZmE=
+github.com/gavv/httpexpect/v2 v2.17.0/go.mod h1:E8ENFlT9MZ3Si2sfM6c6ONdwXV2noBCGkhA+lkJgkP0=
 github.com/go-check/check v0.0.0-20180628173108-788fd7840127/go.mod h1:9ES+weclKsC9YodN5RgxqK/VD9HM9JsCSh7rNhMZE98=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.4.4 h1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=
