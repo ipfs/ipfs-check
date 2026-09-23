@@ -67,6 +67,24 @@ func main() {
 			EnvVars: []string{"IPFS_CHECK_METRICS_AUTH_PASS"},
 			Usage:   "http basic auth password for the metrics endpoints",
 		},
+		&cli.BoolFlag{
+			Name:    "enable-badges",
+			Value:   false,
+			EnvVars: []string{"IPFS_CHECK_ENABLE_BADGES"},
+			Usage:   "enable the badge endpoint for generating IPFS availability badges",
+		},
+		&cli.DurationFlag{
+			Name:    "badge-cache-ttl",
+			Value:   24 * time.Hour,
+			EnvVars: []string{"IPFS_CHECK_BADGE_CACHE_TTL"},
+			Usage:   "how long to cache badge results",
+		},
+		&cli.DurationFlag{
+			Name:    "badge-check-timeout",
+			Value:   30 * time.Second,
+			EnvVars: []string{"IPFS_CHECK_BADGE_TIMEOUT"},
+			Usage:   "timeout for badge CID checks",
+		},
 	}
 	app.Action = func(cctx *cli.Context) error {
 		ctx := cctx.Context
@@ -76,7 +94,13 @@ func main() {
 			return err
 		}
 
-		return startServer(ctx, d, cctx.String("address"), cctx.String("metrics-auth-username"), cctx.String("metrics-auth-password"))
+		badgeConfig := &BadgeConfig{
+			Enabled:      cctx.Bool("enable-badges"),
+			CacheTTL:     cctx.Duration("badge-cache-ttl"),
+			CheckTimeout: cctx.Duration("badge-check-timeout"),
+		}
+
+		return startServer(ctx, d, cctx.String("address"), cctx.String("metrics-auth-username"), cctx.String("metrics-auth-password"), badgeConfig)
 	}
 
 	err := app.Run(os.Args)
@@ -91,7 +115,14 @@ const (
 	libp2pKeyCodec      = 0x72 // multicodec for libp2p-key (PeerID in CIDv1 format)
 )
 
-func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string) error {
+// BadgeConfig holds configuration for the badge endpoint.
+type BadgeConfig struct {
+	Enabled      bool
+	CacheTTL     time.Duration
+	CheckTimeout time.Duration
+}
+
+func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, metricPassword string, badgeConfig *BadgeConfig) error {
 	log.Printf("Starting %s %s\n", name, version)
 	l, err := net.Listen("tcp", tcpListener)
 	if err != nil {
@@ -252,6 +283,14 @@ func startServer(ctx context.Context, d *daemon, tcpListener, metricsUsername, m
 
 	// Use a single metrics endpoint for all Prometheus metrics
 	http.Handle("/metrics", BasicAuth(promhttp.HandlerFor(d.promRegistry, promhttp.HandlerOpts{}), metricsUsername, metricPassword))
+
+	// Badge endpoint (opt-in)
+	if badgeConfig != nil && badgeConfig.Enabled {
+		badgeCache := NewBadgeCache(badgeConfig.CacheTTL)
+		badgeHandler := NewBadgeHandler(d, badgeCache, badgeConfig.CheckTimeout)
+		http.Handle("/badge", badgeHandler)
+		log.Printf("Badge endpoint enabled at http://%s/badge", webAddr)
+	}
 
 	// Serve frontend on /web
 	fileServer := http.FileServer(http.FS(webFS))
