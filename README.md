@@ -56,7 +56,7 @@ Production deployments should terminate HTTPS at a reverse proxy in front of the
 
 ## Self-hosting
 
-The public backend at `https://ipfs-check-backend.ipfs.io` is shared and rate-limited, so it can be slow or busy. Run your own instance for faster, private checks.
+The public backend at `https://ipfs-check-backend.probelab.io` is shared and rate-limited, so it can be slow or busy. Run your own instance for faster, private checks.
 
 A single `ipfs-check` process serves both the HTTP API (`/check`) and the web UI (`/web/`). Start it (see [Install](#install) or [Docker](#docker)), then either open its own `/web/` page or open <https://check.ipfs.network> and set **Backend URL** under **Backend Config** to your instance (for example `https://ipfs-check.example.com`).
 

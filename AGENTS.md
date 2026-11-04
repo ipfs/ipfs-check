@@ -5,7 +5,7 @@ Notes for anyone, human or agent, changing this repository.
 ## The two halves deploy at different speeds
 
 - **Frontend.** Everything under `web/` goes live at <https://check.ipfs.network> as soon as a PR merges to `main`. There is no build step and no approval gate.
-- **Backend.** `https://ipfs-check-backend.ipfs.io` is deployed by hand to infrastructure, from a tagged release. That can lag the frontend by days.
+- **Backend.** `https://ipfs-check-backend.probelab.io` is deployed by hand to infrastructure, from a tagged release. That can lag the frontend by days.
 
 Self-hosted deployments widen the gap further: people run whatever backend version they installed, and may point it at the frontend served from `check.ipfs.network` or embedded in ipfs-webui.
 
