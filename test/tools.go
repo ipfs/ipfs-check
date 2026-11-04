@@ -19,7 +19,7 @@ func Q(
 	multiaddr string,
 ) *httpexpect.Object {
 	url := GetEnv("GATEWAY_URL", "http://localhost:3333")
-	// url := GetEnv("GATEWAY_URL", "https://ipfs-check-backend.ipfs.io")
+	// url := GetEnv("GATEWAY_URL", "https://ipfs-check-backend.probelab.io")
 	return Query(t, url, cid, multiaddr)
 }
 
@@ -31,7 +31,7 @@ func Query(
 	flags ...string,
 ) *httpexpect.Object {
 	expectedContentType := "application/json"
-	if url == "https://ipfs-check-backend.ipfs.io" {
+	if url == "https://ipfs-check-backend.probelab.io" {
 		// Temporary patch: the current released gateway returns text/plain.
 		// TODO: when the correct Content-Type is released, remove all code related to this
 		// override.
